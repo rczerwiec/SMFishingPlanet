@@ -17,22 +17,34 @@ public class ConfigManager {
 
     public ConfigManager(SMFishingPlanet plugin) {
         this.plugin = plugin;
+        loadConfigs();
     }
 
     public void loadConfigs() {
-        // Główna konfiguracja
+        // Załaduj główny config
+        if (!plugin.getDataFolder().exists()) {
+            plugin.getDataFolder().mkdir();
+        }
+
         configFile = new File(plugin.getDataFolder(), "config.yml");
+        fishConfigFile = new File(plugin.getDataFolder(), "fish.yml");
+
         if (!configFile.exists()) {
             plugin.saveResource("config.yml", false);
+            plugin.getLogger().info("Utworzono plik config.yml");
         }
-        config = YamlConfiguration.loadConfiguration(configFile);
 
-        // Konfiguracja ryb
-        fishConfigFile = new File(plugin.getDataFolder(), "fish.yml");
         if (!fishConfigFile.exists()) {
             plugin.saveResource("fish.yml", false);
+            plugin.getLogger().info("Utworzono plik fish.yml");
         }
+
+        config = YamlConfiguration.loadConfiguration(configFile);
         fishConfig = YamlConfiguration.loadConfiguration(fishConfigFile);
+
+        // Dodaj debug info
+        boolean debugEnabled = config.getBoolean("debug", false);
+        plugin.getLogger().info("Debug mode: " + debugEnabled);
     }
 
     public void saveConfig() {
@@ -61,6 +73,25 @@ public class ConfigManager {
 
     public void reloadConfigs() {
         loadConfigs();
+    }
+
+    public void reloadConfig() {
+        config = YamlConfiguration.loadConfiguration(configFile);
+        fishConfig = YamlConfiguration.loadConfiguration(fishConfigFile);
+        
+        // Dodaj debug info przy reloadzie
+        boolean debugEnabled = config.getBoolean("debug", false);
+        plugin.getLogger().info("==========================================");
+        plugin.getLogger().info("Config reloaded!");
+        plugin.getLogger().info("Debug mode: " + debugEnabled);
+        plugin.getLogger().info("Debug value in config: " + config.get("debug"));
+        plugin.getLogger().info("==========================================");
+    }
+
+    public boolean isDebugEnabled() {
+        boolean debugEnabled = config.getBoolean("debug", false);
+        plugin.getLogger().info("Checking debug status: " + debugEnabled);
+        return debugEnabled;
     }
 
     // Metody pomocnicze do pobierania wartości z konfiguracji

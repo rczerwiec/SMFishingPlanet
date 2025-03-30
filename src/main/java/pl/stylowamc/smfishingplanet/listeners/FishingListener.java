@@ -318,43 +318,84 @@ public class FishingListener implements Listener {
     }
 
     private void handleFishingSuccess(Player player, Location hookLocation) {
-        ItemStack rod = player.getInventory().getItemInMainHand();
+        plugin.getLogger().info("\n\n===== ROZPOCZYNAM HANDLEFISHINGSUCCESS =====");
         
-        // Pobierz bonusy z wędki
-        double catchChance = plugin.getFishingRod().getBonus(rod, "catch_chance");
-        double rareFishChance = plugin.getFishingRod().getBonus(rod, "rare_fish_chance");
-        double doubleCatchChance = plugin.getFishingRod().getBonus(rod, "double_catch_chance");
-        
-        // Zastosuj bonus do szansy na złowienie
-        if (random.nextDouble() > (1.0 / catchChance)) {
-            handleFishingFail(player);
-            return;
-        }
-        
-        // Losuj rybę z uwzględnieniem bonusu do rzadkich ryb
-        Fish fish = plugin.getFishManager().getRandomFish(rareFishChance);
-        if (fish == null) {
-            handleFishingFail(player);
-            return;
-        }
-        
-        // Dodaj rybę do ekwipunku gracza
-        plugin.getFishManager().addFish(player, fish);
-        
-        // Sprawdź czy złowiono drugą rybę (szansa na podwójne złowienie)
-        if (random.nextDouble() < doubleCatchChance) {
-            Fish secondFish = plugin.getFishManager().getRandomFish(rareFishChance);
-            if (secondFish != null) {
-                plugin.getFishManager().addFish(player, secondFish);
-                player.sendMessage(MessageUtils.colorize("&a&l✦ &aPodwójne złowienie! &7Złowiłeś dodatkową rybę!"));
+        try {
+            ItemStack rod = player.getInventory().getItemInMainHand();
+            
+            // Pobierz bonusy z wędki
+            double catchChance = plugin.getFishingRod().getBonus(rod, "catch_chance");
+            double rareFishChance = plugin.getFishingRod().getBonus(rod, "rare_fish_chance");
+            double doubleCatchChance = plugin.getFishingRod().getBonus(rod, "double_catch_chance");
+            
+            // Zastosuj bonus do szansy na złowienie
+            if (random.nextDouble() > (1.0 / catchChance)) {
+                plugin.getLogger().info("Nieudane łowienie - nie przeszedł szansy na złowienie");
+                handleFishingFail(player);
+                return;
             }
+            
+            // Wymuś wypisanie do konsoli, nawet jeśli debug jest wyłączony
+            plugin.getLogger().info("=== DIAGNOSTYKA ŁOWIENIA ===");
+            plugin.getLogger().info("• Gracz: " + player.getName());
+            plugin.getLogger().info("• Bonus do rzadkości: " + rareFishChance);
+            plugin.getLogger().info("• Szansa na podwójne złowienie: " + doubleCatchChance);
+            plugin.getLogger().info("• Debug: " + plugin.getConfigManager().getConfig().getBoolean("debug", false));
+            plugin.getLogger().info("• Lokalizacja: " + player.getLocation());
+            
+            // Sprawdź debug w konfiguracji
+            boolean debug = plugin.getConfigManager().getConfig().getBoolean("debug", false);
+            
+            // Wyślij wiadomości do gracza jeśli debug jest włączony
+            if (debug) {
+                player.sendMessage("§8[DEBUG] §7=== Próba złowienia ryby ===");
+                player.sendMessage("§8[DEBUG] §7• Bonus do rzadkości: §f" + rareFishChance);
+                player.sendMessage("§8[DEBUG] §7• Szansa na podwójne złowienie: §f" + doubleCatchChance);
+            }
+            
+            // Losuj rybę z uwzględnieniem bonusu do rzadkich ryb
+            plugin.getLogger().info("=== Wywołuję getRandomFish(player) ===");
+            
+            // Wywołaj standardową metodę
+            plugin.getLogger().info("=== Wywołuję standardową metodę getRandomFish ===");
+            // Jawne wywołanie metody z parametrem Player
+            plugin.getLogger().info("Wcześniej metoda mogła być źle wywoływana - upewniam się, że używam wersji z Player");
+            Fish fish = plugin.getFishManager().getRandomFish(player);  // Jawnie wskazuję wersję z Player
+            
+            if (fish == null) {
+                plugin.getLogger().info("=== getRandomFish zwróciło NULL! ===");
+                handleFishingFail(player);
+                return;
+            }
+            
+            plugin.getLogger().info("=== Wylosowano rybę: " + fish.getName() + " ===");
+            plugin.getLogger().info("• Waga: " + fish.getWeight());
+            plugin.getLogger().info("• Rzadkość: " + fish.getRarity().getName());
+            plugin.getLogger().info("• Available Everywhere: " + fish.isAvailableEverywhere());
+            
+            // Dodaj rybę do ekwipunku gracza
+            plugin.getFishManager().addFish(player, fish);
+            
+            // Sprawdź czy złowiono drugą rybę (szansa na podwójne złowienie)
+            if (random.nextDouble() < doubleCatchChance) {
+                plugin.getLogger().info("=== Wywołuję getRandomFish dla drugiej ryby (podwójne złowienie) ===");
+                Fish secondFish = plugin.getFishManager().getRandomFish(player);  // Jawnie wskazuję wersję z Player
+                if (secondFish != null) {
+                    plugin.getFishManager().addFish(player, secondFish);
+                    player.sendMessage(MessageUtils.colorize("&a&l✦ &aPodwójne złowienie! &7Złowiłeś dodatkową rybę!"));
+                }
+            }
+            
+            // Efekty i dźwięki
+            playFishingSuccessEffects(player, hookLocation);
+            
+            // Uszkodź wędkę
+            plugin.getFishingRod().damageFishingRod(rod);
+        } catch (Exception e) {
+            plugin.getLogger().severe("Wystąpił błąd podczas łowienia:");
+            e.printStackTrace();
+            handleFishingFail(player);
         }
-        
-        // Efekty i dźwięki
-        playFishingSuccessEffects(player, hookLocation);
-        
-        // Uszkodź wędkę
-        plugin.getFishingRod().damageFishingRod(rod);
     }
 
     private void handleFishingFail(Player player) {

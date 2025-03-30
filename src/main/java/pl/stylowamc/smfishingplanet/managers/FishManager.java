@@ -28,6 +28,7 @@ public class FishManager {
     private final Map<String, List<Fish>> fishByRegion;
     private final Random random;
     private final List<Fish> playerFish;
+    private boolean debug;
     
     public FishManager(SMFishingPlanet plugin) {
         this.plugin = plugin;
@@ -36,12 +37,32 @@ public class FishManager {
         this.fishByRegion = new HashMap<>();
         this.random = new Random();
         this.playerFish = new ArrayList<>();
+        this.debug = plugin.getConfigManager().getConfig().getBoolean("debug", false);
         
         loadFish();
     }
     
+    private void sendDebug(Player player, String message) {
+        // Zawsze wysyłaj do konsoli, niezależnie od ustawienia debug
+        plugin.getLogger().info("[DEBUG] " + message.replace("§8", "").replace("§7", "").replace("§f", "").replace("§a", "").replace("§c", ""));
+        
+        // Do gracza wysyłaj tylko jeśli debug jest włączony
+        if (debug) {
+            player.sendMessage("§8[DEBUG] §7" + message);
+        }
+    }
+    
     public void loadFish() {
         FileConfiguration config = plugin.getConfigManager().getFishConfig();
+        
+        // Wyczyść istniejące mapy
+        rarities.clear();
+        fishByCategory.clear();
+        fishByRegion.clear();
+        
+        if (debug) {
+            plugin.getLogger().info("=== Rozpoczynam ładowanie ryb ===");
+        }
         
         // Ładowanie rzadkości
         ConfigurationSection raritiesSection = config.getConfigurationSection("rarities");
@@ -51,6 +72,9 @@ public class FishManager {
                 String color = raritiesSection.getString(key + ".color");
                 int chance = raritiesSection.getInt(key + ".chance");
                 rarities.put(key, new Rarity(name, color, chance));
+                if (debug) {
+                    plugin.getLogger().info("Załadowano rzadkość: " + key + " (" + name + ")");
+                }
             }
         }
 
@@ -58,8 +82,17 @@ public class FishManager {
         ConfigurationSection categoriesSection = config.getConfigurationSection("categories");
         if (categoriesSection != null) {
             for (String categoryKey : categoriesSection.getKeys(false)) {
+                if (debug) {
+                    plugin.getLogger().info("=== Ładowanie kategorii: " + categoryKey + " ===");
+                }
+                
                 ConfigurationSection categorySection = categoriesSection.getConfigurationSection(categoryKey);
-                if (categorySection == null) continue;
+                if (categorySection == null) {
+                    if (debug) {
+                        plugin.getLogger().warning("Nie znaleziono sekcji dla kategorii: " + categoryKey);
+                    }
+                    continue;
+                }
 
                 String categoryName = categorySection.getString("name");
                 Material icon = Material.valueOf(categorySection.getString("icon", "COD"));
@@ -68,10 +101,25 @@ public class FishManager {
 
                 ConfigurationSection fishSection = categorySection.getConfigurationSection("fish");
                 if (fishSection != null) {
+                    if (debug) {
+                        plugin.getLogger().info("Znaleziono sekcję 'fish' dla kategorii " + categoryKey);
+                        plugin.getLogger().info("Dostępne ryby w kategorii: " + String.join(", ", fishSection.getKeys(false)));
+                    }
+                    
                     for (String fishKey : fishSection.getKeys(false)) {
                         String name = fishSection.getString(fishKey + ".name");
                         double baseValue = fishSection.getDouble(fishKey + ".base_value");
                         boolean availableEverywhere = fishSection.getBoolean(fishKey + ".available_everywhere", false);
+                        List<String> regions = fishSection.getStringList(fishKey + ".regions");
+
+                        if (debug) {
+                            plugin.getLogger().info("--- Ładowanie ryby: " + name + " ---");
+                            plugin.getLogger().info("• Klucz w configu: " + fishKey);
+                            plugin.getLogger().info("• Ścieżka do regionów: categories." + categoryKey + ".fish." + fishKey + ".regions");
+                            plugin.getLogger().info("• Base Value: " + baseValue);
+                            plugin.getLogger().info("• Available Everywhere: " + availableEverywhere);
+                            plugin.getLogger().info("• Regiony: " + String.join(", ", regions));
+                        }
 
                         // Tworzymy rybę używając poprawnego konstruktora
                         Fish fish = new Fish(name, categoryName, baseValue, valueMultiplier, availableEverywhere);
@@ -86,133 +134,247 @@ public class FishManager {
                                 Rarity rarity = rarities.get(rarityKey.toLowerCase());
                                 if (rarity != null) {
                                     fish.getWeightRanges().add(new WeightRange(min, max, rarity));
+                                    if (debug) {
+                                        plugin.getLogger().info("  Dodano zakres wagi: " + rangeKey + " (" + min + "-" + max + "kg, " + rarityKey + ")");
+                                    }
                                 }
                             }
                         }
 
                         fishList.add(fish);
 
-                        if (plugin.getConfigManager().getConfig().getBoolean("debug", false)) {
-                            plugin.getLogger().info("Załadowano rybę: " + name + " (kategoria: " + categoryName + ", dostępna wszędzie: " + availableEverywhere + ")");
-                        }
-
                         // Jeśli ryba nie jest dostępna wszędzie, dodaj ją do mapy regionów
-                        if (!availableEverywhere) {
-                            List<String> regions = fishSection.getStringList(fishKey + ".regions");
+                        if (!availableEverywhere && !regions.isEmpty()) {
                             for (String region : regions) {
                                 fishByRegion.computeIfAbsent(region, k -> new ArrayList<>()).add(fish);
+                                if (debug) {
+                                    plugin.getLogger().info("§a✔ Dodano rybę " + name + " do regionu " + region);
+                                }
                             }
+                        } else if (!availableEverywhere && regions.isEmpty()) {
+                            plugin.getLogger().warning("§c✖ Ryba " + name + " nie jest dostępna wszędzie, ale nie ma zdefiniowanych regionów!");
                         }
+                    }
+                } else {
+                    if (debug) {
+                        plugin.getLogger().warning("Nie znaleziono sekcji 'fish' dla kategorii " + categoryKey);
                     }
                 }
 
                 fishByCategory.put(categoryKey, fishList);
             }
         }
+        
+        if (debug) {
+            plugin.getLogger().info("=== Podsumowanie załadowanych ryb ===");
+            plugin.getLogger().info("Liczba kategorii: " + fishByCategory.size());
+            plugin.getLogger().info("Liczba regionów: " + fishByRegion.size());
+            for (Map.Entry<String, List<Fish>> entry : fishByRegion.entrySet()) {
+                plugin.getLogger().info("Region " + entry.getKey() + ": " + entry.getValue().size() + " ryb");
+                for (Fish fish : entry.getValue()) {
+                    plugin.getLogger().info("- " + fish.getName());
+                }
+            }
+        }
     }
     
     public Fish getRandomFish(Player player) {
-        List<Fish> availableFish = new ArrayList<>();
+        // Wymuszamy włączenie debug na potrzeby diagnostyki
+        boolean originalDebugValue = this.debug;
+        this.debug = true;
         
-        if (plugin.getConfigManager().getConfig().getBoolean("debug", false)) {
-            player.sendMessage("§8[DEBUG] §7Szukam dostępnych ryb...");
-        }
+        // Zbierz informacje diagnostyczne
+        String debugMessage = "\n\n===== DIAGNOSTYKA DEBUGOWANIA =====\n";
+        debugMessage += "• Wartość debug w Managerze (oryginalna): " + originalDebugValue + "\n";
+        debugMessage += "• Wartość debug w Managerze (po wymuszeniu): " + this.debug + "\n";
+        debugMessage += "• Wartość w configu: " + plugin.getConfigManager().getConfig().getBoolean("debug", false) + "\n";
+        debugMessage += "• Klasa: " + this.getClass().getSimpleName() + "\n";
+        debugMessage += "• Metoda: getRandomFish(Player)\n";
+        debugMessage += "• Gracz: " + player.getName() + "\n";
+        debugMessage += "• Lokalizacja: " + player.getLocation() + "\n";
+        debugMessage += "• Czas: " + new java.util.Date() + "\n";
         
-        // Sprawdź region gracza
-        Location loc = player.getLocation();
-        RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
-        RegionQuery query = container.createQuery();
-        Set<String> playerRegions = query.getApplicableRegions(BukkitAdapter.adapt(loc))
-            .getRegions().stream()
-            .map(region -> region.getId())
-            .collect(Collectors.toSet());
+        // Wymuś wypisanie do konsoli
+        plugin.getLogger().info(debugMessage);
+        
+        try {
+            // Wyślij wiadomość do gracza
+            player.sendMessage("§8[DEBUG] §7Diagnostyka wypisana do konsoli - sprawdź logi serwera");
             
-        if (plugin.getConfigManager().getConfig().getBoolean("debug", false)) {
-            if (playerRegions.isEmpty()) {
-                player.sendMessage("§8[DEBUG] §7Brak regionów w tej lokacji - sprawdzam tylko ryby dostępne wszędzie");
-            } else {
-                player.sendMessage("§8[DEBUG] §7Znalezione regiony: §f" + String.join(", ", playerRegions));
-            }
-        }
-        
-        // Iteruj przez wszystkie kategorie ryb
-        for (Map.Entry<String, List<Fish>> entry : fishByCategory.entrySet()) {
-            String categoryKey = entry.getKey();
-            double categoryMultiplier = plugin.getConfigManager().getFishConfig().getDouble("categories." + categoryKey + ".value_multiplier", 1.0);
+            sendDebug(player, "=== ROZPOCZYNAM TEST DEBUGOWANIA ===");
+            sendDebug(player, "Debug jest włączony: " + debug);
+            sendDebug(player, "Wartość w configu: " + plugin.getConfigManager().getConfig().getBoolean("debug", false));
+
+            // Pobierz bonus do rzadkości z wędki
+            ItemStack rod = player.getInventory().getItemInMainHand();
+            double rareFishChance = plugin.getFishingRod().getBonus(rod, "rare_fish_chance");
             
-            for (Fish fish : entry.getValue()) {
-                boolean shouldAdd = false;
+            sendDebug(player, "Bonus do rzadkości z wędki: " + rareFishChance);
+
+            List<Fish> availableFish = new ArrayList<>();
+            
+            sendDebug(player, "=== Start procesu losowania ryby ===");
+            sendDebug(player, "Szukam dostępnych ryb...");
+            
+            // Sprawdź region gracza
+            Location loc = player.getLocation();
+            RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
+            RegionQuery query = container.createQuery();
+            Set<String> playerRegions = query.getApplicableRegions(BukkitAdapter.adapt(loc))
+                .getRegions().stream()
+                .map(region -> region.getId())
+                .collect(Collectors.toSet());
                 
-                // Jeśli gracz jest poza regionem, dodaj TYLKO ryby dostępne wszędzie
-                if (playerRegions.isEmpty()) {
-                    shouldAdd = fish.isAvailableEverywhere();
-                    if (plugin.getConfigManager().getConfig().getBoolean("debug", false)) {
-                        player.sendMessage("§8[DEBUG] §7Ryba §f" + fish.getName() + 
-                            " §7dostępna wszędzie: §f" + fish.isAvailableEverywhere());
-                    }
-                } else {
-                    // Jeśli gracz jest w regionie
-                    if (fish.isAvailableEverywhere()) {
-                        shouldAdd = true;
+            sendDebug(player, "=== Informacje o regionach ===");
+            if (playerRegions.isEmpty()) {
+                sendDebug(player, "§c✖ Brak regionów w tej lokacji - będą dostępne tylko ryby z available_everywhere: true");
+            } else {
+                sendDebug(player, "§a✔ Znalezione regiony gracza: §f" + String.join(", ", playerRegions));
+                // Dodaj szczegółowe debugowanie regionów
+                for (String region : playerRegions) {
+                    sendDebug(player, "§7• Region: §f" + region);
+                    List<Fish> fishInRegion = fishByRegion.get(region);
+                    if (fishInRegion != null && !fishInRegion.isEmpty()) {
+                        sendDebug(player, "  §7Ryby w tym regionie:");
+                        for (Fish fish : fishInRegion) {
+                            sendDebug(player, "    §7- §f" + fish.getName());
+                        }
                     } else {
-                        // Pobierz regiony dla ryby z konfiguracji
-                        String fishKey = fish.getName().toLowerCase().replace(" ", "_");
-                        List<String> fishRegions = plugin.getConfigManager().getFishConfig()
-                            .getStringList("categories." + categoryKey + ".fish." + fishKey + ".regions");
+                        sendDebug(player, "  §c✖ Brak zdefiniowanych ryb dla tego regionu");
+                    }
+                }
+            }
+            
+            // Iteruj przez wszystkie kategorie ryb
+            for (Map.Entry<String, List<Fish>> entry : fishByCategory.entrySet()) {
+                String categoryKey = entry.getKey();
+                double categoryMultiplier = plugin.getConfigManager().getFishConfig().getDouble("categories." + categoryKey + ".value_multiplier", 1.0);
+                
+                sendDebug(player, "=== Sprawdzam kategorię: §f" + categoryKey + " §7===");
+                
+                for (Fish fish : entry.getValue()) {
+                    boolean shouldAdd = false;
+                    
+                    // Debugowanie ścieżki do regionów
+                    String fishKey = fish.getName().toLowerCase().replace(" ", "_");
+                    
+                    // Znajdź odpowiednią sekcję ryby w konfiguracji
+                    ConfigurationSection fishSection = null;
+                    String fishPath = null;
+                    
+                    // Szukaj ryby w konfiguracji
+                    ConfigurationSection categoryFishSection = plugin.getConfigManager().getFishConfig()
+                        .getConfigurationSection("categories." + categoryKey + ".fish");
                         
-                        // Sprawdź czy gracz jest w którymkolwiek z regionów ryby
-                        shouldAdd = playerRegions.stream().anyMatch(fishRegions::contains);
-                        
-                        if (plugin.getConfigManager().getConfig().getBoolean("debug", false)) {
-                            player.sendMessage("§8[DEBUG] §7Ryba §f" + fish.getName() + 
-                                " §7jest dostępna w regionach: §f" + String.join(", ", fishRegions) +
-                                " §7(dodana: §f" + shouldAdd + "§7)");
+                    if (categoryFishSection != null) {
+                        for (String key : categoryFishSection.getKeys(false)) {
+                            String fishName = categoryFishSection.getString(key + ".name");
+                            if (fishName != null && fishName.equals(fish.getName())) {
+                                fishSection = categoryFishSection.getConfigurationSection(key);
+                                fishPath = "categories." + categoryKey + ".fish." + key;
+                                break;
+                            }
                         }
                     }
-                }
-                
-                if (shouldAdd) {
-                    Fish fishWithMultiplier = new Fish(
-                        fish.getName(),
-                        fish.getCategory(),
-                        fish.getBaseValue(),
-                        categoryMultiplier,
-                        fish.getRarity(),
-                        fish.getWeight(),
-                        fish.isAvailableEverywhere()
-                    );
-                    fishWithMultiplier.getWeightRanges().addAll(fish.getWeightRanges());
-                    availableFish.add(fishWithMultiplier);
                     
-                    if (plugin.getConfigManager().getConfig().getBoolean("debug", false)) {
-                        player.sendMessage("§8[DEBUG] §7Dodano rybę: §f" + fish.getName());
+                    if (fishSection == null) {
+                        sendDebug(player, "§c✖ Nie znaleziono sekcji w configu dla ryby: " + fish.getName());
+                        continue;
+                    }
+                    
+                    // Pobierz informacje o rybie
+                    boolean availableEverywhere = fishSection.getBoolean("available_everywhere", false);
+                    List<String> fishRegions = fishSection.getStringList("regions");
+                    
+                    sendDebug(player, "--- Sprawdzam rybę: §f" + fish.getName() + " §7---");
+                    sendDebug(player, "• Ścieżka w configu: §f" + fishPath);
+                    sendDebug(player, "• Available Everywhere: §f" + availableEverywhere);
+                    sendDebug(player, "• Regiony ryby: §f" + (fishRegions.isEmpty() ? "brak" : String.join(", ", fishRegions)));
+                    
+                    // Jeśli ryba jest dostępna wszędzie, dodaj ją
+                    if (availableEverywhere) {
+                        shouldAdd = true;
+                        sendDebug(player, "§a✔ Ryba dostępna wszędzie - dodaję do puli");
+                    } 
+                    // Jeśli gracz jest w regionie i ryba ma przypisane regiony, sprawdź czy gracz jest w odpowiednim regionie
+                    else if (!fishRegions.isEmpty()) {
+                        // Sprawdź czy którykolwiek z regionów gracza pokrywa się z regionami ryby
+                        boolean regionMatch = false;
+                        for (String playerRegion : playerRegions) {
+                            if (fishRegions.contains(playerRegion)) {
+                                regionMatch = true;
+                                sendDebug(player, "§a✔ Znaleziono pasujący region §f" + playerRegion + "§7 dla ryby");
+                                break;
+                            }
+                        }
+                        
+                        if (regionMatch) {
+                            shouldAdd = true;
+                            sendDebug(player, "§a✔ Dodaję rybę do puli");
+                        } else {
+                            sendDebug(player, "§c✖ Brak pasującego regionu dla ryby");
+                        }
+                    } else {
+                        sendDebug(player, "§c✖ Ryba nie ma zdefiniowanych regionów - pomijam");
+                    }
+                    
+                    if (shouldAdd) {
+                        Fish fishWithMultiplier = new Fish(
+                            fish.getName(),
+                            fish.getCategory(),
+                            fish.getBaseValue(),
+                            categoryMultiplier,
+                            fish.getRarity(),
+                            fish.getWeight(),
+                            availableEverywhere
+                        );
+                        fishWithMultiplier.getWeightRanges().addAll(fish.getWeightRanges());
+                        availableFish.add(fishWithMultiplier);
+                        sendDebug(player, "§a✔ Dodano rybę §f" + fish.getName() + "§7 do puli dostępnych ryb");
                     }
                 }
             }
-        }
-        
-        if (availableFish.isEmpty()) {
-            if (plugin.getConfigManager().getConfig().getBoolean("debug", false)) {
-                player.sendMessage("§8[DEBUG] §7Nie znaleziono dostępnych ryb!");
+            
+            if (availableFish.isEmpty()) {
+                sendDebug(player, "§c✖ Nie znaleziono żadnych dostępnych ryb!");
+                return null;
             }
+            
+            sendDebug(player, "=== Dostępne ryby ===");
+            for (Fish fish : availableFish) {
+                sendDebug(player, "• §f" + fish.getName() + " §7(wszędzie: §f" + fish.isAvailableEverywhere() + "§7)");
+            }
+            
+            // Wybierz losową rybę z dostępnych
+            Fish selectedFish = availableFish.get(random.nextInt(availableFish.size()));
+            
+            // Wybierz losowy zakres wagi dla wybranej ryby z uwzględnieniem bonusu do rzadkości
+            WeightRange weightRange = getRandomWeightRange(selectedFish.getWeightRanges(), rareFishChance);
+            if (weightRange != null) {
+                selectedFish.setWeight(weightRange.getRandomWeight(random));
+                selectedFish.setRarity(weightRange.getRarity());
+            }
+            
+            sendDebug(player, "=== Wylosowana ryba ===");
+            sendDebug(player, "• Nazwa: §f" + selectedFish.getName());
+            sendDebug(player, "• Waga: §f" + selectedFish.getWeight());
+            sendDebug(player, "• Rzadkość: §f" + selectedFish.getRarity().getName());
+            sendDebug(player, "=== Koniec procesu losowania ===");
+            
+            // Przywróć oryginalną wartość debug
+            this.debug = originalDebugValue;
+            
+            return selectedFish;
+        } catch (Exception e) {
+            // Zapisz wyjątek do logów
+            plugin.getLogger().severe("Wystąpił błąd podczas losowania ryby:");
+            e.printStackTrace();
+            
+            // Przywróć oryginalną wartość debug
+            this.debug = originalDebugValue;
+            
             return null;
         }
-        
-        // Wybierz losową rybę z dostępnych
-        Fish selectedFish = availableFish.get(random.nextInt(availableFish.size()));
-        
-        // Pobierz bonus do rzadkości z wędki
-        ItemStack rod = player.getInventory().getItemInMainHand();
-        double rareFishChance = plugin.getFishingRod().getBonus(rod, "rare_fish_chance");
-        
-        // Wybierz losowy zakres wagi dla wybranej ryby z uwzględnieniem bonusu do rzadkości
-        WeightRange weightRange = getRandomWeightRange(selectedFish.getWeightRanges(), rareFishChance);
-        if (weightRange != null) {
-            selectedFish.setWeight(weightRange.getRandomWeight(random));
-            selectedFish.setRarity(weightRange.getRarity());
-        }
-        
-        return selectedFish;
     }
     
     private WeightRange getRandomWeightRange(List<WeightRange> ranges, double rarityBonus) {
@@ -484,6 +646,7 @@ public class FishManager {
         rarities.clear();
         fishByCategory.clear();
         fishByRegion.clear();
+        this.debug = plugin.getConfigManager().getConfig().getBoolean("debug", false);
         loadFish();
     }
     
@@ -507,43 +670,12 @@ public class FishManager {
             }
         }
     }
-
-    public Fish getRandomFish(double rarityBonus) {
-        // Pobierz wszystkie dostępne ryby
-        List<Fish> availableFish = new ArrayList<>(fishByCategory.values().stream()
-            .flatMap(List::stream)
-            .filter(fish -> !fish.getWeightRanges().isEmpty()) // Filtruj tylko ryby z zakresami wag
-            .collect(Collectors.toList()));
-            
-        if (availableFish.isEmpty()) {
-            plugin.getLogger().warning("Nie znaleziono dostępnych ryb!");
-            return null;
-        }
-        
-        // Wybierz losową rybę
-        Fish selectedFish = availableFish.get(random.nextInt(availableFish.size()));
-        
-        // Wybierz losowy zakres wagi z uwzględnieniem bonusu do rzadkości
-        WeightRange selectedRange = getRandomWeightRange(selectedFish.getWeightRanges(), rarityBonus);
-        if (selectedRange == null) {
-            plugin.getLogger().warning("Nie można wylosować zakresu wagi dla ryby: " + selectedFish.getName());
-            return null;
-        }
-        
-        // Wygeneruj losową wagę z wybranego zakresu
-        double weight = selectedRange.getRandomWeight(random);
-        
-        // Stwórz nową instancję ryby z wylosowaną wagą i rzadkością
-        double categoryMultiplier = plugin.getConfigManager().getFishConfig().getDouble("categories." + selectedFish.getCategory() + ".value_multiplier", 1.0);
-        
-        return new Fish(
-            selectedFish.getName(),
-            selectedFish.getCategory(),
-            selectedFish.getBaseValue(),
-            categoryMultiplier,
-            selectedRange.getRarity(),
-            weight,
-            selectedFish.isAvailableEverywhere()
-        );
+    
+    public List<Fish> getFishByRegion(String region) {
+        return fishByRegion.get(region);
+    }
+    
+    public Map<String, List<Fish>> getAllFishByRegion() {
+        return Collections.unmodifiableMap(fishByRegion);
     }
 } 
