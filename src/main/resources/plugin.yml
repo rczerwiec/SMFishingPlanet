@@ -1,0 +1,57 @@
+name: SMFishingPlanet
+version: '${project.version}'
+main: pl.stylowamc.smfishingplanet.SMFishingPlanet
+api-version: '1.20'
+authors: [Stylowa]
+description: Plugin na łowienie ryb z systemem poziomów i ekonomią
+depend: [Vault, WorldGuard, WorldEdit]
+
+commands:
+  smfishingplanet:
+    description: Główna komenda pluginu
+    aliases: [sfp, fishing]
+  sprzedajryby:
+    description: Komenda do sprzedawania ryb
+    usage: /<command>
+    aliases: [sellfish]
+  wedka:
+    description: Komenda do otrzymywania wędki
+    usage: /<command> <typ>
+    aliases: [fishingrod]
+  poziom:
+    description: Komenda do sprawdzania poziomu
+    usage: /<command>
+    aliases: [level]
+  zylka:
+    description: Komenda do otrzymywania żyłek
+    usage: /zylka <2mm/4mm/5mm/6mm>
+    aliases: [fishingline]
+  setlevel:
+    description: Ustawia poziom rybactwa gracza
+    usage: /setlevel <gracz> <poziom>
+    permission: smfishing.setlevel
+
+permissions:
+  smfishing.*:
+    description: Dostęp do wszystkich komend pluginu
+    children:
+      smfishing.wedka: true
+      smfishing.sprzedajryby: true
+      smfishing.poziom: true
+      smfishing.zylka: true
+      smfishing.setlevel: true
+  smfishing.wedka:
+    description: Pozwala na użycie komendy /wedka
+    default: op
+  smfishing.sprzedajryby:
+    description: Pozwala na użycie komendy /sprzedajryby
+    default: true
+  smfishing.poziom:
+    description: Pozwala na użycie komendy /poziom
+    default: true
+  smfishing.zylka:
+    description: Pozwala na użycie komendy /zylka
+    default: op
+  smfishing.setlevel:
+    description: Pozwala na ustawianie poziomu rybactwa graczy
+    default: op

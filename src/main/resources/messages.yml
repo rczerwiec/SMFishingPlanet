@@ -1,0 +1,59 @@
+# Ogólne wiadomości
+prefix: "&8[&bSMFishing&8] &7"
+no_permission: "&cNie masz uprawnień do użycia tej komendy!"
+player_only: "&cTa komenda jest dostępna tylko dla graczy!"
+reload_success: "&aKonfiguracja została przeładowana!"
+
+# Wiadomości związane z wędkami
+rod:
+  invalid_type: "&cNieprawidłowy typ wędki!"
+  level_too_low: "&cPotrzebujesz poziomu &e%level% &caby użyć tej wędki!"
+  received: "&aOtrzymałeś nową wędkę!"
+  broken: "&cTwoja wędka się złamała!"
+  not_allowed: "&cNie możesz używać tej wędki! &7Wymagany poziom: &f%level%"
+
+# Wiadomości związane z łowieniem
+fishing:
+  bar_title: "&b§lŁowienie..."
+  started: "&aRozpoczęto łowienie..."
+  failed: "&cNie udało się złowić ryby!"
+  success: "&aZłowiłeś %rarity_color%%fish_name% &7(&f%weight%kg&7) o wartości &e%value%$&7!"
+  success_with_xp: "&aZłowiłeś %rarity_color%%fish_name% &7(&f%weight%kg&7) o wartości &e%value%$&7! &8(&b+%gained_xp% XP&8)"
+  inventory_full: "&cTwój ekwipunek jest pełny!"
+  wrong_rod: "&cMusisz użyć specjalnej wędki do łowienia!"
+  wrong_world: "&cNie możesz tutaj łowić ryb!"
+  cooldown: "&cMusisz poczekać §e%time%s §caby ponownie łowić!"
+  level_progress: "&7Poziom: &b%level% &8| &7XP: &b%current_xp%&7/&b%required_xp% &8(&b%progress%%&8)"
+
+# Wiadomości związane ze sprzedażą
+sell:
+  success: "&aSprzedałeś &f%amount%x %fish_name% &7za &e%value%$&7!"
+  no_fish: "&cNie masz żadnych ryb do sprzedania!"
+  menu:
+    title: "&8» &7Menu sprzedaży"
+    category_title: "&8» &7Kategoria: &f%category%"
+    sell_all: "&aSprzedaj wszystko"
+    return: "&cPowrót"
+  menu_title: "&8Sprzedaż ryb"
+
+# Wiadomości związane z poziomami
+level:
+  up: "&aGratulacje! Awansowałeś na poziom &e%level%&a!"
+  current: "&7Twój aktualny poziom: &b%level%"
+  progress: "&7Postęp: &b%current_xp%&7/&b%required_xp% XP &8(&b%progress%%&8)"
+  max: "&7Osiągnąłeś maksymalny poziom!"
+
+# Wiadomości związane z rybami
+fish:
+  rarity:
+    common: "&7POSPOLITA"
+    uncommon: "&aRZADKA"
+    rare: "&bBARDZO RZADKA"
+    epic: "&5EPICKA"
+    legendary: "&6LEGENDARNA"
+  stats:
+    weight: "&7Waga: &f%weight%kg"
+    value: "&7Wartość: &f%value% monet"
+    rarity: "&7Rzadkość: %rarity%"
+  sold: "&aSprzedano %rarity% %name% &7(&f%weight%kg&7) za &e%value%$&7!"
+  no_fish: "&cNie masz żadnych ryb do sprzedania!" 
