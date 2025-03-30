@@ -30,6 +30,14 @@ commands:
     description: Ustawia poziom rybactwa gracza
     usage: /setlevel <gracz> <poziom>
     permission: smfishing.setlevel
+  statystyki:
+    description: Wyświetla statystyki łowienia
+    usage: /<command>
+    aliases: [stats, rybystats]
+  ryby:
+    description: Daje losową rybę
+    usage: /<command>
+    permission: smfishing.ryby
 
 permissions:
   smfishing.*:
@@ -40,6 +48,8 @@ permissions:
       smfishing.poziom: true
       smfishing.zylka: true
       smfishing.setlevel: true
+      smfishing.statystyki: true
+      smfishing.ryby: true
   smfishing.wedka:
     description: Pozwala na użycie komendy /wedka
     default: op
@@ -55,3 +65,9 @@ permissions:
   smfishing.setlevel:
     description: Pozwala na ustawianie poziomu rybactwa graczy
     default: op
+  smfishing.statystyki:
+    description: Pozwala na wyświetlanie statystyk łowienia
+    default: true
+  smfishing.ryby:
+    description: Pozwala na użycie komendy /ryby
+    default: true

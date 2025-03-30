@@ -3,6 +3,7 @@ prefix: "&8[&bSMFishing&8] &7"
 no_permission: "&cNie masz uprawnień do użycia tej komendy!"
 player_only: "&cTa komenda jest dostępna tylko dla graczy!"
 reload_success: "&aKonfiguracja została przeładowana!"
+fish_caught: "&aZłowiłeś %rarity_color%%fish_name% &7(&f%weight%kg&7) o wartości &e%value%$&7! &8(&b+%xp% XP&8)"
 
 # Wiadomości związane z wędkami
 rod:
@@ -17,6 +18,7 @@ fishing:
   bar_title: "&b§lŁowienie..."
   started: "&aRozpoczęto łowienie..."
   failed: "&cNie udało się złowić ryby!"
+  fail: "&cNie udało się złowić ryby!"
   success: "&aZłowiłeś %rarity_color%%fish_name% &7(&f%weight%kg&7) o wartości &e%value%$&7!"
   success_with_xp: "&aZłowiłeś %rarity_color%%fish_name% &7(&f%weight%kg&7) o wartości &e%value%$&7! &8(&b+%gained_xp% XP&8)"
   inventory_full: "&cTwój ekwipunek jest pełny!"
@@ -27,8 +29,9 @@ fishing:
 
 # Wiadomości związane ze sprzedażą
 sell:
-  success: "&aSprzedałeś &f%amount%x %fish_name% &7za &e%value%$&7!"
+  success: "&aSprzedałeś &f%amount%x &7przedmiotów za &e%value%$&7!"
   no_fish: "&cNie masz żadnych ryb do sprzedania!"
+  nothing: "&cNie masz żadnych przedmiotów do sprzedania!"
   menu:
     title: "&8» &7Menu sprzedaży"
     category_title: "&8» &7Kategoria: &f%category%"
@@ -53,7 +56,7 @@ fish:
     legendary: "&6LEGENDARNA"
   stats:
     weight: "&7Waga: &f%weight%kg"
-    value: "&7Wartość: &f%value% monet"
+    value: "&7Wartość: &f%value%$"
     rarity: "&7Rzadkość: %rarity%"
   sold: "&aSprzedano %rarity% %name% &7(&f%weight%kg&7) za &e%value%$&7!"
   no_fish: "&cNie masz żadnych ryb do sprzedania!" 

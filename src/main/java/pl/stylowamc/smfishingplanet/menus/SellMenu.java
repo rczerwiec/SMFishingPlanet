@@ -26,18 +26,15 @@ public class SellMenu {
         // Lista kategorii w odpowiedniej kolejności
         List<String> orderedCategories = Arrays.asList("small", "medium", "large", "special");
         
-        // Dodaj kategorie w odpowiedniej kolejności
-        int slot = 10;
+        // Dodaj kategorie w lepszym układzie - środek górnej części menu
+        int[] slots = {11, 13, 15, 22, 29, 31, 33};
+        int categoryIndex = 0;
+        
         for (String categoryKey : orderedCategories) {
-            if (plugin.getFishManager().getFishByCategory().containsKey(categoryKey)) {
+            if (plugin.getFishManager().getFishByCategory().containsKey(categoryKey) && categoryIndex < slots.length) {
                 ItemStack categoryItem = createCategoryItem(categoryKey);
-                inv.setItem(slot, categoryItem);
-                
-                if ((slot + 1) % 9 == 8) {
-                    slot += 3;
-                } else {
-                    slot += 1;
-                }
+                inv.setItem(slots[categoryIndex], categoryItem);
+                categoryIndex++;
             }
         }
 
@@ -76,16 +73,15 @@ public class SellMenu {
 
         Inventory inv = Bukkit.createInventory(null, 54, MessageUtils.colorize("&8» &7Kategoria: &f" + categoryName));
 
-        // Dodaj przyciski dla każdego gatunku ryby
-        int slot = 10;
+        // Dodaj przyciski dla każdego gatunku ryby w lepszym układzie
+        int[] slots = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34};
+        int fishIndex = 0;
+        
         for (String fishName : uniqueFishNames) {
-            ItemStack fishTypeItem = createFishTypeButton(fishName, player);
-            inv.setItem(slot, fishTypeItem);
-            
-            if ((slot + 1) % 9 == 8) {
-                slot += 3;
-            } else {
-                slot += 1;
+            if (fishIndex < slots.length) {
+                ItemStack fishTypeItem = createFishTypeButton(fishName, player);
+                inv.setItem(slots[fishIndex], fishTypeItem);
+                fishIndex++;
             }
         }
 
@@ -180,72 +176,52 @@ public class SellMenu {
         return item;
     }
 
+    public void sellAllFish(Player player) {
+        // Używamy nowej metody z FishManager która obsługuje również statystyki
+        double totalValue = plugin.getFishManager().sellAllFish(player);
+        
+        if (totalValue > 0) {
+            // Zaktualizuj ekwipunek gracza
+            player.updateInventory();
+            
+            // Wyślij wiadomość o sprzedaży
+            Map<String, String> placeholders = new HashMap<>();
+            placeholders.put("value", String.format("%.2f", totalValue));
+            MessageUtils.sendMessage(player, "sell.success", placeholders);
+        } else {
+            MessageUtils.sendMessage(player, "sell.nothing");
+        }
+    }
+    
     public void sellFishByType(Player player, String fishName) {
         double totalValue = 0;
         int soldCount = 0;
         
-        ItemStack[] contents = player.getInventory().getContents();
-        for (int i = 0; i < contents.length; i++) {
-            ItemStack item = contents[i];
-            if (item != null && item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
-                String displayName = item.getItemMeta().getDisplayName();
-                if (displayName.contains(fishName)) {
-                    // Pobierz wartość ryby z lore
-                    List<String> lore = item.getItemMeta().getLore();
-                    if (lore != null) {
-                        for (String line : lore) {
-                            if (line.contains("Wartość:")) {
-                                String valueStr = line.split(": ")[1].replace(" monet", "").trim();
-                                totalValue += Double.parseDouble(valueStr);
-                                break;
-                            }
-                        }
-                    }
-                    player.getInventory().setItem(i, null);
-                    soldCount++;
-                }
-            }
+        List<Fish> playerFish = plugin.getFishManager().getPlayerFish(player.getUniqueId());
+        // Znajdź wszystkie ryby danego typu
+        List<Fish> fishToSell = playerFish.stream()
+            .filter(fish -> fish.getName().equals(fishName))
+            .collect(Collectors.toList());
+        
+        // Sprzedaj każdą rybę
+        for (Fish fish : fishToSell) {
+            double value = plugin.getFishManager().sellFish(player, fish);
+            totalValue += value;
+            soldCount++;
         }
         
         if (soldCount > 0) {
-            plugin.getEconomy().depositPlayer(player, totalValue);
+            // Zaktualizuj ekwipunek gracza
+            player.updateInventory();
+            
+            // Wyślij wiadomość o sprzedaży
             Map<String, String> placeholders = new HashMap<>();
             placeholders.put("fish_name", fishName);
             placeholders.put("amount", String.valueOf(soldCount));
             placeholders.put("value", String.format("%.2f", totalValue));
             MessageUtils.sendMessage(player, "messages.fish_sold", placeholders);
-        }
-    }
-
-    public void sellAllFish(Player player) {
-        double totalValue = 0;
-        int soldCount = 0;
-        
-        ItemStack[] contents = player.getInventory().getContents();
-        for (int i = 0; i < contents.length; i++) {
-            ItemStack item = contents[i];
-            if (item != null && item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
-                List<String> lore = item.getItemMeta().getLore();
-                if (lore != null && lore.stream().anyMatch(line -> line.contains("Wartość:"))) {
-                    for (String line : lore) {
-                        if (line.contains("Wartość:")) {
-                            String valueStr = line.split(": ")[1].replace(" monet", "").trim();
-                            totalValue += Double.parseDouble(valueStr);
-                            break;
-                        }
-                    }
-                    player.getInventory().setItem(i, null);
-                    soldCount++;
-                }
-            }
-        }
-        
-        if (soldCount > 0) {
-            plugin.getEconomy().depositPlayer(player, totalValue);
-            Map<String, String> placeholders = new HashMap<>();
-            placeholders.put("amount", String.valueOf(soldCount));
-            placeholders.put("value", String.format("%.2f", totalValue));
-            MessageUtils.sendMessage(player, "sell.success", placeholders);
+        } else {
+            MessageUtils.sendMessage(player, "sell.nothing");
         }
     }
 } 

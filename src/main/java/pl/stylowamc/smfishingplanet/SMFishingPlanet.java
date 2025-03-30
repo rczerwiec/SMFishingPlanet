@@ -11,6 +11,9 @@ import pl.stylowamc.smfishingplanet.commands.SprzedajRybyCommand;
 import pl.stylowamc.smfishingplanet.commands.WedkaCommand;
 import pl.stylowamc.smfishingplanet.commands.ZylkaCommand;
 import pl.stylowamc.smfishingplanet.commands.SetLevelCommand;
+import pl.stylowamc.smfishingplanet.commands.RybyCommand;
+import pl.stylowamc.smfishingplanet.commands.SMFishingPlanetCommand;
+import pl.stylowamc.smfishingplanet.commands.StatystykiCommand;
 import pl.stylowamc.smfishingplanet.crafting.FishingRodRecipe;
 import pl.stylowamc.smfishingplanet.items.FishingRod;
 import pl.stylowamc.smfishingplanet.listeners.FishingListener;
@@ -24,6 +27,7 @@ import pl.stylowamc.smfishingplanet.managers.PlayerDataManager;
 import pl.stylowamc.smfishingplanet.menus.SellMenu;
 import pl.stylowamc.smfishingplanet.utils.MessageUtils;
 import org.bukkit.inventory.ShapedRecipe;
+import org.bukkit.command.CommandExecutor;
 
 public class SMFishingPlanet extends JavaPlugin {
     private static SMFishingPlanet instance;
@@ -58,6 +62,10 @@ public class SMFishingPlanet extends JavaPlugin {
         playerDataManager = new PlayerDataManager(this);
         fishingRod = new FishingRod(this);
         sellMenu = new SellMenu(this);
+        
+        // Inicjalizacja śmieci i żyłek
+        pl.stylowamc.smfishingplanet.models.Trash.init(this);
+        pl.stylowamc.smfishingplanet.models.FishingLine.init(this);
 
         // Rejestracja listenerów
         getServer().getPluginManager().registerEvents(new FishingListener(this), this);
@@ -67,11 +75,7 @@ public class SMFishingPlanet extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new CraftingListener(this), this);
 
         // Rejestracja komend
-        getCommand("wedka").setExecutor(new WedkaCommand(this));
-        getCommand("sprzedajryby").setExecutor(new SprzedajRybyCommand(this));
-        getCommand("poziom").setExecutor(new PoziomCommand(this));
-        getCommand("zylka").setExecutor(new ZylkaCommand(this));
-        getCommand("setlevel").setExecutor(new SetLevelCommand(this));
+        registerCommands();
 
         // Rejestruj crafting
         FishingRodRecipe rodRecipe = new FishingRodRecipe(this);
@@ -170,5 +174,25 @@ public class SMFishingPlanet extends JavaPlugin {
         configManager.loadConfigs();
         MessageUtils.reloadMessages();
         fishManager.reloadFish();
+    }
+
+    private void registerCommands() {
+        // Rejestracja komend z zabezpieczeniem przed nullami
+        safeRegisterCommand("ryby", new RybyCommand(this));
+        safeRegisterCommand("wedka", new WedkaCommand(this));
+        safeRegisterCommand("sprzedajryby", new SprzedajRybyCommand(this));
+        safeRegisterCommand("smfishingplanet", new SMFishingPlanetCommand(this));
+        safeRegisterCommand("poziom", new PoziomCommand(this));
+        safeRegisterCommand("zylka", new ZylkaCommand(this));
+        safeRegisterCommand("setlevel", new SetLevelCommand(this));
+        safeRegisterCommand("statystyki", new StatystykiCommand(this));
+    }
+    
+    private void safeRegisterCommand(String name, CommandExecutor executor) {
+        if (getCommand(name) != null) {
+            getCommand(name).setExecutor(executor);
+        } else {
+            getLogger().warning("Nie można zarejestrować komendy: " + name + " - brak definicji w plugin.yml");
+        }
     }
 }

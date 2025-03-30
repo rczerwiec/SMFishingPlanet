@@ -156,6 +156,57 @@ public class ConfigManager {
     }
 
     public int getXpForRarity(String rarity) {
-        return config.getInt("levels.xp_per_fish." + rarity.toLowerCase(), 1);
+        String path = "levels.xp_per_fish." + rarity.toLowerCase();
+        plugin.getLogger().info("==== DEBUG XP CONFIG ====");
+        plugin.getLogger().info("Próbuję pobrać XP dla rzadkości: " + rarity);
+        plugin.getLogger().info("Ścieżka w config: " + path);
+        
+        int xp = config.getInt(path, -1);
+        plugin.getLogger().info("Wartość znaleziona: " + xp);
+        
+        // Sprawdź alternatywne ścieżki, jeśli nie znaleziono wartości
+        if (xp == -1) {
+            plugin.getLogger().info("Nie znaleziono wartości pod ścieżką " + path + ", szukam alternatyw...");
+            
+            // Mapowanie polskich nazw na angielskie
+            String alternativePath = path;
+            if (rarity.equalsIgnoreCase("pospolita")) {
+                alternativePath = "levels.xp_per_fish.common";
+            } else if (rarity.equalsIgnoreCase("niepospolita")) {
+                alternativePath = "levels.xp_per_fish.uncommon";
+            } else if (rarity.equalsIgnoreCase("rzadka")) {
+                alternativePath = "levels.xp_per_fish.rare";
+            } else if (rarity.equalsIgnoreCase("epicka")) {
+                alternativePath = "levels.xp_per_fish.epic";
+            } else if (rarity.equalsIgnoreCase("legendarna")) {
+                alternativePath = "levels.xp_per_fish.legendary";
+            }
+            
+            plugin.getLogger().info("Próbuję alternatywną ścieżkę: " + alternativePath);
+            xp = config.getInt(alternativePath, 1);
+            plugin.getLogger().info("Wartość alternatywna: " + xp);
+        }
+        
+        plugin.getLogger().info("Ostateczna wartość XP: " + xp);
+        return xp;
+    }
+
+    /**
+     * Zwraca ilość XP wymagane do osiągnięcia następnego poziomu
+     * @param level Aktualny poziom gracza
+     * @return Wymagane XP do następnego poziomu
+     */
+    public double getXpRequired(int level) {
+        String path = "levels.required_xp." + level;
+        if (config.contains(path)) {
+            double requiredXp = config.getDouble(path);
+            plugin.getLogger().info("Pobieranie wymaganego XP dla poziomu " + level + ": " + requiredXp);
+            return requiredXp;
+        } else {
+            // Wzór na wymagane XP gdy nie zdefiniowano konkretnej wartości
+            double requiredXp = 100 * Math.pow(1.5, level - 1);
+            plugin.getLogger().info("Obliczanie wymaganego XP dla poziomu " + level + ": " + requiredXp);
+            return requiredXp;
+        }
     }
 } 

@@ -122,6 +122,7 @@ public class GuiListener implements Listener {
         int soldCount = 0;
         
         for (ItemStack item : player.getInventory().getContents()) {
+            // Sprawdź ryby (przedmioty typu COD)
             if (item != null && item.getType() == Material.COD && item.hasItemMeta() && item.getItemMeta().hasLore()) {
                 List<String> lore = item.getItemMeta().getLore();
                 for (String line : lore) {
@@ -129,12 +130,51 @@ public class GuiListener implements Listener {
                         try {
                             String valueStr = line.split(": ")[1].replaceAll("[^0-9.]", "");
                             double value = Double.parseDouble(valueStr);
+                            if (value < 0.01) value = 0.01; // Minimalna wartość
                             totalValue += value;
                             soldCount++;
                             player.getInventory().remove(item);
-                        } catch (Exception ignored) {}
+                        } catch (Exception e) {
+                            plugin.getLogger().warning("Błąd podczas parsowania wartości ryby: " + e.getMessage());
+                        }
                         break;
                     }
+                }
+            } 
+            // Sprawdź śmieci (różne przedmioty z lore zawierającym "Śmieć")
+            else if (item != null && item.hasItemMeta() && item.getItemMeta().hasLore()) {
+                List<String> lore = item.getItemMeta().getLore();
+                boolean isTrash = false;
+                double value = 0.0;
+                
+                for (String line : lore) {
+                    if (line.contains("&8Śmieć") || line.contains("§8Śmieć")) {
+                        isTrash = true;
+                    }
+                    if (isTrash && line.contains("Wartość:")) {
+                        try {
+                            String valueStr = line.split(": ")[1].replaceAll("[^0-9.]", "");
+                            value = Double.parseDouble(valueStr);
+                            if (value < 0.01) {
+                                // Jeśli wartość jest zbyt mała, użyj domyślnej
+                                value = plugin.getConfig().getDouble("trash.default_value", 0.1);
+                            }
+                        } catch (Exception e) {
+                            // Jeśli nie można wczytać wartości, użyj domyślnej
+                            value = plugin.getConfig().getDouble("trash.default_value", 0.1);
+                            plugin.getLogger().warning("Błąd podczas parsowania wartości śmieci: " + e.getMessage());
+                        }
+                        break;
+                    }
+                }
+                
+                if (isTrash) {
+                    if (value < 0.01) {
+                        value = plugin.getConfig().getDouble("trash.default_value", 0.1);
+                    }
+                    totalValue += value;
+                    soldCount++;
+                    player.getInventory().remove(item);
                 }
             }
         }
@@ -146,7 +186,7 @@ public class GuiListener implements Listener {
             placeholders.put("value", String.format("%.2f", totalValue));
             MessageUtils.sendMessage(player, "sell.success", placeholders);
         } else {
-            MessageUtils.sendMessage(player, "sell.no_fish");
+            MessageUtils.sendMessage(player, "sell.nothing");
         }
     }
 
@@ -182,10 +222,17 @@ public class GuiListener implements Listener {
                         try {
                             String valueStr = line.split(": ")[1].replaceAll("[^0-9.]", "");
                             double value = Double.parseDouble(valueStr);
+                            if (value < 0.01) value = 0.01; // Minimalna wartość
                             totalValue += value;
                             soldCount++;
                             player.getInventory().remove(item);
-                        } catch (Exception ignored) {}
+                        } catch (Exception e) {
+                            // Jeśli nie można przetworzyć wartości, używamy domyślnej
+                            totalValue += 0.01;
+                            soldCount++;
+                            player.getInventory().remove(item);
+                            plugin.getLogger().warning("Błąd podczas parsowania wartości ryby: " + e.getMessage());
+                        }
                         break;
                     }
                 }
@@ -219,10 +266,17 @@ public class GuiListener implements Listener {
                             try {
                                 String valueStr = line.split(": ")[1].replaceAll("[^0-9.]", "");
                                 double value = Double.parseDouble(valueStr);
+                                if (value < 0.01) value = 0.01; // Minimalna wartość
                                 totalValue += value;
                                 soldCount++;
                                 player.getInventory().remove(item);
-                            } catch (Exception ignored) {}
+                            } catch (Exception e) {
+                                // Jeśli nie można przetworzyć wartości, używamy domyślnej
+                                totalValue += 0.01;
+                                soldCount++;
+                                player.getInventory().remove(item);
+                                plugin.getLogger().warning("Błąd podczas parsowania wartości ryby: " + e.getMessage());
+                            }
                             break;
                         }
                     }

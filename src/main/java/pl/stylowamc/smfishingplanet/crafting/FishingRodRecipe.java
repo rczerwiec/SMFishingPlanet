@@ -8,6 +8,7 @@ import org.bukkit.inventory.ShapedRecipe;
 import pl.stylowamc.smfishingplanet.SMFishingPlanet;
 import pl.stylowamc.smfishingplanet.items.FishingLine;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.ChatColor;
 
 public class FishingRodRecipe {
     private final SMFishingPlanet plugin;
@@ -44,7 +45,16 @@ public class FishingRodRecipe {
                 ItemMeta originalMeta = original.getItemMeta();
                 if (originalMeta == null || !originalMeta.hasDisplayName()) return false;
                 
-                return meta.getDisplayName().equals(originalMeta.getDisplayName());
+                // Wyciągamy tylko nazwę i porównujemy ją, ignorując inne atrybuty
+                String itemName = ChatColor.stripColor(meta.getDisplayName());
+                String originalName = ChatColor.stripColor(originalMeta.getDisplayName());
+                
+                // Sprawdzamy czy żyłka ma odpowiednią wielkość (np. "Żyłka 4mm")
+                if (originalName.contains("4mm") && itemName.contains("4mm")) return true;
+                if (originalName.contains("5mm") && itemName.contains("5mm")) return true;
+                if (originalName.contains("6mm") && itemName.contains("6mm")) return true;
+                
+                return false;
             }
         };
     }

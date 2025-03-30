@@ -139,35 +139,76 @@ public class FishingRod {
     public String getRodType(ItemStack item) {
         if (!isFishingRod(item)) return null;
         
-        String displayName = item.getItemMeta().getDisplayName();
-        if (displayName.contains("Podstawowa")) return "basic";
-        if (displayName.contains("Zaawansowana")) return "advanced";
-        if (displayName.contains("Profesjonalna")) return "professional";
-        if (displayName.contains("Mistrza")) return "master";
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return null;
+        
+        // Sprawdź PersistentDataContainer najpierw
+        PersistentDataContainer container = meta.getPersistentDataContainer();
+        if (container.has(rodTypeKey, PersistentDataType.STRING)) {
+            return container.get(rodTypeKey, PersistentDataType.STRING);
+        }
+        
+        // Jeśli nie ma danych w PDC, spróbuj rozpoznać po nazwie
+        String displayName = meta.getDisplayName();
+        String cleanName = org.bukkit.ChatColor.stripColor(displayName).toLowerCase();
+        
+        if (cleanName.contains("podstawowa")) return "basic";
+        if (cleanName.contains("zaawansowana")) return "advanced";
+        if (cleanName.contains("profesjonalna")) return "professional";
+        if (cleanName.contains("mistrza")) return "master";
+        
+        // Sprawdź również angielskie nazwy
+        if (cleanName.contains("basic")) return "basic";
+        if (cleanName.contains("advanced")) return "advanced";
+        if (cleanName.contains("professional")) return "professional";
+        if (cleanName.contains("master")) return "master";
         
         return null;
     }
 
     public void damageFishingRod(ItemStack rod) {
-        if (!isFishingRod(rod)) return;
+        if (!isFishingRod(rod)) {
+            plugin.getLogger().info("DEBUG: Przedmiot nie jest wędką z pluginu");
+            return;
+        }
+        
         ItemMeta meta = rod.getItemMeta();
-        if (meta == null) return;
+        if (meta == null) {
+            plugin.getLogger().info("DEBUG: ItemMeta jest null");
+            return;
+        }
 
         PersistentDataContainer container = meta.getPersistentDataContainer();
-        String type = container.get(rodTypeKey, PersistentDataType.STRING);
-        Integer currentDurability = container.get(durabilityKey, PersistentDataType.INTEGER);
+        String type = container.has(rodTypeKey, PersistentDataType.STRING) ? 
+                      container.get(rodTypeKey, PersistentDataType.STRING) : null;
+        
+        Integer currentDurability = container.has(durabilityKey, PersistentDataType.INTEGER) ? 
+                                   container.get(durabilityKey, PersistentDataType.INTEGER) : null;
 
         // Jeśli wędka nie ma zapisanej wytrzymałości, ustaw domyślną
         if (type == null || currentDurability == null) {
             type = getRodType(rod);
-            if (type == null) type = "basic"; // Domyślny typ wędki
+            plugin.getLogger().info("DEBUG: Typ wędki odczytany z nazwy: " + type);
+            
+            if (type == null) {
+                type = "basic"; // Domyślny typ wędki
+                plugin.getLogger().info("DEBUG: Ustawiam domyślny typ wędki: basic");
+            }
+            
             currentDurability = plugin.getConfigManager().getConfig().getInt("fishing_rod." + type + ".durability", 100);
+            plugin.getLogger().info("DEBUG: Ustawiam domyślną wytrzymałość: " + currentDurability);
+            
             container.set(rodTypeKey, PersistentDataType.STRING, type);
             container.set(durabilityKey, PersistentDataType.INTEGER, currentDurability);
         }
 
+        // Pobierz maksymalną wytrzymałość z konfiguracji
         int maxDurability = plugin.getConfigManager().getConfig().getInt("fishing_rod." + type + ".durability", 100);
+        
+        // Zmniejsz wytrzymałość
         currentDurability--;
+        plugin.getLogger().info("DEBUG: Zmniejszam wytrzymałość wędki typu " + type + " z " + (currentDurability + 1) + " do " + currentDurability);
+        
         container.set(durabilityKey, PersistentDataType.INTEGER, currentDurability);
 
         // Aktualizuj lore

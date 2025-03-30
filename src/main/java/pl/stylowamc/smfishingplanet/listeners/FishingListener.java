@@ -110,8 +110,8 @@ public class FishingListener implements Listener {
                         // Gracz kliknął za wcześnie lub za późno
                         handleFishingFail(player);
                     }
+                    cleanupFishingState(player);
                 }
-                cleanupFishingState(player);
                 // Wyciągnij przynętę
                 if (event.getHook() != null) {
                     event.getHook().remove();
@@ -126,8 +126,8 @@ public class FishingListener implements Listener {
                         player.sendMessage("§8[DEBUG] §7Przerwano łowienie");
                     }
                     handleFishingFail(player);
+                    cleanupFishingState(player);
                 }
-                cleanupFishingState(player);
                 break;
         }
     }
@@ -317,84 +317,102 @@ public class FishingListener implements Listener {
         return progress >= sweetSpotStart && progress <= sweetSpotStart + sweetSpotSize;
     }
 
-    private void handleFishingSuccess(Player player, Location hookLocation) {
+    public void handleFishingSuccess(Player player, Location hookLocation) {
         plugin.getLogger().info("\n\n===== ROZPOCZYNAM HANDLEFISHINGSUCCESS =====");
         
-        try {
-            ItemStack rod = player.getInventory().getItemInMainHand();
+        // Pobierz bonusy z wędki
+        ItemStack rod = player.getInventory().getItemInMainHand();
+        double rareFishChance = plugin.getFishingRod().getBonus(rod, "rare_fish_chance");
+        String rodType = plugin.getFishingRod().getRodType(rod);
+        plugin.getLogger().info("DEBUG: Gracz " + player.getName() + " próbuje złowić rybę z bonusem rzadkości: " + rareFishChance);
+        
+        // Sprawdź, czy gracz powinien otrzymać żyłkę
+        if (rodType != null && pl.stylowamc.smfishingplanet.models.FishingLine.shouldDropLine(rodType)) {
+            plugin.getLogger().info("DEBUG: Gracz " + player.getName() + " złowił żyłkę dla wędki typu: " + rodType);
             
-            // Pobierz bonusy z wędki
-            double catchChance = plugin.getFishingRod().getBonus(rod, "catch_chance");
-            double rareFishChance = plugin.getFishingRod().getBonus(rod, "rare_fish_chance");
-            double doubleCatchChance = plugin.getFishingRod().getBonus(rod, "double_catch_chance");
+            // Utwórz odpowiednią żyłkę
+            pl.stylowamc.smfishingplanet.models.FishingLine fishingLine = 
+                pl.stylowamc.smfishingplanet.models.FishingLine.getLineForRodType(rodType);
+            ItemStack lineItem = fishingLine.createItemStack();
             
-            // Zastosuj bonus do szansy na złowienie
-            if (random.nextDouble() > (1.0 / catchChance)) {
-                plugin.getLogger().info("Nieudane łowienie - nie przeszedł szansy na złowienie");
-                handleFishingFail(player);
-                return;
+            // Dodaj żyłkę do ekwipunku gracza
+            if (player.getInventory().firstEmpty() != -1) {
+                player.getInventory().addItem(lineItem);
+                player.sendMessage(MessageUtils.colorize("&a&lGratulacje! &7Znalazłeś &b" + fishingLine.getName() + "&7!"));
+            } else {
+                // Jeśli ekwipunek jest pełny, upuść przedmiot na ziemię
+                player.getWorld().dropItemNaturally(player.getLocation(), lineItem);
+                MessageUtils.sendMessage(player, "inventory_full");
             }
             
-            // Wymuś wypisanie do konsoli, nawet jeśli debug jest wyłączony
-            plugin.getLogger().info("=== DIAGNOSTYKA ŁOWIENIA ===");
-            plugin.getLogger().info("• Gracz: " + player.getName());
-            plugin.getLogger().info("• Bonus do rzadkości: " + rareFishChance);
-            plugin.getLogger().info("• Szansa na podwójne złowienie: " + doubleCatchChance);
-            plugin.getLogger().info("• Debug: " + plugin.getConfigManager().getConfig().getBoolean("debug", false));
-            plugin.getLogger().info("• Lokalizacja: " + player.getLocation());
+            return;
+        }
+        
+        // Pobierz szansę na złowienie śmieci
+        double trashChance = pl.stylowamc.smfishingplanet.models.Trash.getTrashChance();
+        
+        // Losowa szansa na złowienie śmieci
+        if (Math.random() * 100 < trashChance) {
+            plugin.getLogger().info("DEBUG: Gracz " + player.getName() + " złowił śmieć");
             
-            // Sprawdź debug w konfiguracji
-            boolean debug = plugin.getConfigManager().getConfig().getBoolean("debug", false);
+            // Utwórz losowy śmieć
+            pl.stylowamc.smfishingplanet.models.Trash trash = pl.stylowamc.smfishingplanet.models.Trash.getRandomTrash();
+            ItemStack trashItem = trash.createItemStack();
             
-            // Wyślij wiadomości do gracza jeśli debug jest włączony
-            if (debug) {
-                player.sendMessage("§8[DEBUG] §7=== Próba złowienia ryby ===");
-                player.sendMessage("§8[DEBUG] §7• Bonus do rzadkości: §f" + rareFishChance);
-                player.sendMessage("§8[DEBUG] §7• Szansa na podwójne złowienie: §f" + doubleCatchChance);
+            // Dodaj śmieć do ekwipunku gracza
+            if (player.getInventory().firstEmpty() != -1) {
+                player.getInventory().addItem(trashItem);
+                player.sendMessage(MessageUtils.colorize("&7Złowiłeś śmieć: &f" + trash.getName()));
+            } else {
+                // Jeśli ekwipunek jest pełny, upuść przedmiot na ziemię
+                player.getWorld().dropItemNaturally(player.getLocation(), trashItem);
+                MessageUtils.sendMessage(player, "inventory_full");
             }
             
-            // Losuj rybę z uwzględnieniem bonusu do rzadkich ryb
-            plugin.getLogger().info("=== Wywołuję getRandomFish(player) ===");
+            // Dodaj efekty
+            playFishingTrashEffects(player, hookLocation);
             
-            // Wywołaj standardową metodę
-            plugin.getLogger().info("=== Wywołuję standardową metodę getRandomFish ===");
-            // Jawne wywołanie metody z parametrem Player
-            plugin.getLogger().info("Wcześniej metoda mogła być źle wywoływana - upewniam się, że używam wersji z Player");
-            Fish fish = plugin.getFishManager().getRandomFish(player);  // Jawnie wskazuję wersję z Player
-            
+            // Zarejestruj w statystykach złowienie śmieci
+            plugin.getPlayerDataManager().registerStatTrashCaught(player);
+        } else {
+            // Spróbuj złowić rybę
+            Fish fish = plugin.getFishManager().getRandomFish(player);
             if (fish == null) {
-                plugin.getLogger().info("=== getRandomFish zwróciło NULL! ===");
+                plugin.getLogger().warning("Nie można wylosować ryby dla gracza: " + player.getName());
                 handleFishingFail(player);
+                plugin.getPlayerDataManager().registerStatFailedCatch(player);
                 return;
             }
             
-            plugin.getLogger().info("=== Wylosowano rybę: " + fish.getName() + " ===");
-            plugin.getLogger().info("• Waga: " + fish.getWeight());
-            plugin.getLogger().info("• Rzadkość: " + fish.getRarity().getName());
-            plugin.getLogger().info("• Available Everywhere: " + fish.isAvailableEverywhere());
+            // Zarejestruj złowienie ryby w statystykach
+            plugin.getPlayerDataManager().registerStatCatch(player, fish);
             
-            // Dodaj rybę do ekwipunku gracza
-            plugin.getFishManager().addFish(player, fish);
-            
-            // Sprawdź czy złowiono drugą rybę (szansa na podwójne złowienie)
-            if (random.nextDouble() < doubleCatchChance) {
-                plugin.getLogger().info("=== Wywołuję getRandomFish dla drugiej ryby (podwójne złowienie) ===");
-                Fish secondFish = plugin.getFishManager().getRandomFish(player);  // Jawnie wskazuję wersję z Player
+            // Złów drugą rybę (jeśli mamy szczęście)
+            if (Math.random() < 0.05) {  // 5% szans na złowienie drugiej ryby
+                plugin.getLogger().info("DEBUG: Gracz " + player.getName() + " ma szczęście i łowi drugą rybę!");
+                Fish secondFish = plugin.getFishManager().getRandomFish(player);
                 if (secondFish != null) {
                     plugin.getFishManager().addFish(player, secondFish);
-                    player.sendMessage(MessageUtils.colorize("&a&l✦ &aPodwójne złowienie! &7Złowiłeś dodatkową rybę!"));
+                    plugin.getPlayerDataManager().registerStatCatch(player, secondFish);
                 }
             }
             
-            // Efekty i dźwięki
-            playFishingSuccessEffects(player, hookLocation);
+            // Dodaj złowioną rybę
+            plugin.getFishManager().addFish(player, fish);
             
-            // Uszkodź wędkę
-            plugin.getFishingRod().damageFishingRod(rod);
-        } catch (Exception e) {
-            plugin.getLogger().severe("Wystąpił błąd podczas łowienia:");
-            e.printStackTrace();
-            handleFishingFail(player);
+            // Dodaj efekty
+            playFishingSuccessEffects(player, hookLocation);
+        }
+        
+        // Zmniejsz wytrzymałość wędki
+        ItemStack fishingRod = player.getInventory().getItemInMainHand();
+        if (plugin.getFishingRod().isFishingRod(fishingRod)) {
+            plugin.getFishingRod().damageFishingRod(fishingRod);
+            int durability = plugin.getFishingRod().getDurability(fishingRod);
+            if (durability <= 0) {
+                player.getInventory().setItemInMainHand(null);
+                MessageUtils.sendMessage(player, "rod.broken");
+            }
         }
     }
 
@@ -415,7 +433,7 @@ public class FishingListener implements Listener {
             MessageUtils.colorize("&7Spróbuj ponownie..."),
             5, 40, 5
         );
-
+        
         // Efekty dla nieudanego łowienia
         Location loc = player.getLocation();
         World world = loc.getWorld();
@@ -425,7 +443,7 @@ public class FishingListener implements Listener {
         world.spawnParticle(Particle.WATER_SPLASH, loc, 50, 0.5, 0.5, 0.5, 0.1);
         
         // Dźwięki
-        world.playSound(loc, Sound.BLOCK_FIRE_EXTINGUISH, 1.0f, 1.0f);
+        world.playSound(loc, Sound.valueOf(plugin.getConfigManager().getFailSound()), 1.0f, 1.0f);
         world.playSound(loc, Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
         
         // Zmniejsz wytrzymałość wędki
@@ -444,6 +462,12 @@ public class FishingListener implements Listener {
             .filter(entity -> entity.getType() == EntityType.FISHING_HOOK)
             .filter(entity -> entity.getCustomName() != null && entity.getCustomName().equals(player.getName()))
             .forEach(entity -> entity.remove());
+            
+        // Zarejestruj nieudane łowienie w statystykach
+        plugin.getPlayerDataManager().registerStatFailedCatch(player);
+        
+        // Wyślij wiadomość o porażce
+        MessageUtils.sendMessage(player, "fishing.fail");
     }
 
     private void cleanupFishingState(Player player) {
@@ -488,6 +512,26 @@ public class FishingListener implements Listener {
         player.sendTitle(
             MessageUtils.colorize("&a&l✔ ZŁOWIONO! &a&l✔"),
             MessageUtils.colorize("&7Sprawdź swój ekwipunek!"),
+            10, 40, 20
+        );
+    }
+
+    private void playFishingTrashEffects(Player player, Location location) {
+        // Efekty dla złowienia śmieci
+        World world = location.getWorld();
+        
+        // Efekty cząsteczkowe
+        world.spawnParticle(Particle.WATER_SPLASH, location, 30, 0.5, 0.5, 0.5, 0.1);
+        world.spawnParticle(Particle.SMOKE_NORMAL, location, 10, 0.3, 0.3, 0.3, 0.05);
+        
+        // Dźwięki
+        world.playSound(location, Sound.ENTITY_FISHING_BOBBER_SPLASH, 0.8f, 0.8f);
+        world.playSound(location, Sound.BLOCK_WET_GRASS_STEP, 1.0f, 0.5f);
+        
+        // Wyświetl wiadomość na środku ekranu
+        player.sendTitle(
+            MessageUtils.colorize("&7&lŚmieć!"),
+            MessageUtils.colorize("&8Udało ci się złowić jakiś śmieć..."),
             10, 40, 20
         );
     }

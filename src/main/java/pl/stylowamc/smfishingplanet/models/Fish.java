@@ -106,7 +106,7 @@ public class Fish {
         // Ustaw opis
         List<String> lore = new ArrayList<>();
         lore.add("§7Waga: §f" + String.format("%.2f", weight) + " kg");
-        lore.add("§7Wartość: §f" + String.format("%.0f", calculateValue()) + " monet");
+        lore.add("§7Wartość: §f" + String.format("%.2f", calculateValue()) + "$");
         
         meta.setLore(lore);
         item.setItemMeta(meta);
@@ -115,25 +115,83 @@ public class Fish {
     }
     
     public double calculateValue() {
-        // Bazowa wartość pomnożona przez mnożnik kategorii
-        double value = baseValue * categoryMultiplier;
+        System.out.println("DEBUG: Kalkulacja wartości dla ryby: " + name);
         
-        // Bonus za rzadkość (do +50%)
-        double rarityBonus = switch (rarity.getName().toLowerCase()) {
-            case "common" -> 1.0;     // Brak bonusu
-            case "uncommon" -> 1.1;   // +10%
-            case "rare" -> 1.25;      // +25%
-            case "epic" -> 1.35;      // +35%
-            case "legendary" -> 1.5;   // +50%
-            default -> 1.0;           // Domyślnie brak bonusu
-        };
-        value *= rarityBonus;
+        // Bazowa wartość z pola klasy
+        System.out.println("DEBUG: Bazowa wartość: " + baseValue);
         
-        // Bonus za wagę (do +30%)
-        double weightBonus = Math.min(1.3, 1 + (weight / 10));
-        value *= weightBonus;
+        // Mnożnik kategorii z pola klasy
+        System.out.println("DEBUG: Mnożnik kategorii: " + categoryMultiplier);
         
-        return value;
+        // Upewnij się, że wartość bazowa nie jest zerowa ani ujemna
+        double safeBaseValue = Math.max(0.01, baseValue);
+        if (safeBaseValue != baseValue) {
+            System.out.println("DEBUG: Skorygowana wartość bazowa: " + safeBaseValue);
+        }
+        
+        // Upewnij się, że mnożnik kategorii nie jest zerowy ani ujemny
+        double safeCategoryMultiplier = Math.max(0.01, categoryMultiplier);
+        if (safeCategoryMultiplier != categoryMultiplier) {
+            System.out.println("DEBUG: Skorygowany mnożnik kategorii: " + safeCategoryMultiplier);
+        }
+        
+        double calculatedValue = safeBaseValue * safeCategoryMultiplier;
+        System.out.println("DEBUG: Wartość po mnożniku kategorii: " + calculatedValue);
+        
+        // Upewnij się, że wartość nie jest zbyt niska
+        if (calculatedValue < 0.01) {
+            calculatedValue = 0.01;
+            System.out.println("DEBUG: Wartość poniżej minimalnej, ustawiam na: " + calculatedValue);
+        }
+        
+        // Bonus za rzadkość
+        String rarityName = rarity.getName().toLowerCase();
+        double rarityBonus = 1.0;
+        
+        switch (rarityName) {
+            case "pospolita":
+                rarityBonus = 1.0;
+                break;
+            case "niepospolita":
+                rarityBonus = 1.5;
+                break;
+            case "rzadka":
+                rarityBonus = 2.0;
+                break;
+            case "epicka":
+                rarityBonus = 3.0;
+                break;
+            case "legendarna":
+                rarityBonus = 5.0;
+                break;
+            default:
+                rarityBonus = 1.0;
+                break;
+        }
+        
+        System.out.println("DEBUG: Rzadkość: " + rarityName + ", bonus: " + rarityBonus);
+        calculatedValue *= rarityBonus;
+        System.out.println("DEBUG: Wartość po bonusie za rzadkość: " + calculatedValue);
+        
+        // Bonus za wagę (do 30% więcej dla cięższych egzemplarzy)
+        double weightBonus = Math.max(1.0, 1.0 + (weight / 20.0)); // Max bonus wynosi +30% dla 6kg ryby
+        if (weightBonus > 1.3) weightBonus = 1.3; // Ogranicz do +30%
+        
+        System.out.println("DEBUG: Waga: " + weight + "kg, bonus: " + weightBonus);
+        calculatedValue *= weightBonus;
+        System.out.println("DEBUG: Finalna wartość po bonusie za wagę: " + calculatedValue);
+        
+        // Upewnij się, że finalna wartość nie jest mniejsza niż 0.01
+        if (calculatedValue < 0.01) {
+            calculatedValue = 0.01;
+            System.out.println("DEBUG: Finalna wartość poniżej minimalnej, ustawiam na: " + calculatedValue);
+        }
+        
+        // Zaokrąglenie do 2 miejsc po przecinku
+        double roundedValue = Math.round(calculatedValue * 100.0) / 100.0;
+        System.out.println("DEBUG: Finalna wartość po zaokrągleniu: " + roundedValue);
+        
+        return Math.max(0.01, roundedValue); // Dodatkowe zabezpieczenie przed wartościami ujemnymi lub zerowymi
     }
     
     public double getValue() {

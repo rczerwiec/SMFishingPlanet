@@ -28,6 +28,27 @@ public class MessageUtils {
     public static String getMessage(String path) {
         return messageCache.computeIfAbsent(path, key -> {
             String message = messages.getString(key);
+            
+            // Sprawdź alternatywne ścieżki
+            if (message == null) {
+                // Sprawdź alternatywne ścieżki dla najczęstszych problemów
+                if (key.equals("rod_not_allowed")) {
+                    message = messages.getString("rod.not_allowed");
+                } else if (key.equals("fishingfail") || key.equals("fishing.fail")) {
+                    message = messages.getString("fishing.failed");
+                    if (message == null) {
+                        message = plugin.getConfig().getString("messages.fishing_fail");
+                    }
+                } else if (key.equals("fish_caught")) {
+                    message = plugin.getConfig().getString("messages.fish_caught");
+                } else if (key.equals("inventory_full")) {
+                    message = messages.getString("fishing.inventory_full");
+                    if (message == null) {
+                        message = plugin.getConfig().getString("messages.inventory_full");
+                    }
+                }
+            }
+            
             return message != null ? colorize(message) : "§cBrak wiadomości dla klucza: " + key;
         });
     }

@@ -2,6 +2,7 @@ package pl.stylowamc.smfishingplanet.managers;
 
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
 import com.sk89q.worldguard.WorldGuard;
+import com.sk89q.worldguard.protection.managers.RegionManager;
 import com.sk89q.worldguard.protection.regions.RegionContainer;
 import com.sk89q.worldguard.protection.regions.RegionQuery;
 import org.bukkit.Location;
@@ -20,6 +21,7 @@ import pl.stylowamc.smfishingplanet.utils.MessageUtils;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.Calendar;
 
 public class FishManager {
     private final SMFishingPlanet plugin;
@@ -478,9 +480,9 @@ public class FishManager {
         meta.setDisplayName(rarityColor + rarityPrefix + " " + fish.getName());
         
         List<String> lore = new ArrayList<>();
-        lore.add(MessageUtils.getMessage("fish.stats.weight").replace("%weight%", String.format("%.1f", fish.getWeight())));
-        lore.add(MessageUtils.getMessage("fish.stats.value").replace("%value%", String.format("%.0f", fish.getValue())));
-        lore.add(MessageUtils.getMessage("fish.stats.rarity").replace("%rarity%", rarity.getColor() + rarityPrefix));
+        lore.add(MessageUtils.colorize("&7Waga: &f" + String.format("%.1f", fish.getWeight()) + " kg"));
+        lore.add(MessageUtils.colorize("&7Wartość: &e" + String.format("%.2f", fish.getValue()) + "$"));
+        lore.add(MessageUtils.colorize("&7Rzadkość: " + rarity.getColor() + rarityPrefix));
         lore.add(MessageUtils.colorize("&7Kategoria: &f" + fish.getCategory()));
         lore.add("");
         
@@ -490,21 +492,19 @@ public class FishManager {
             
             // Sprawdź region
             String regionName = "Świat";
-            if (!fish.isAvailableEverywhere()) {
-                RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
-                RegionQuery query = container.createQuery();
-                Set<String> regions = query.getApplicableRegions(BukkitAdapter.adapt(loc))
-                    .getRegions().stream()
-                    .map(region -> region.getId())
-                    .collect(Collectors.toSet());
-                
-                // Znajdź pierwszy region z listy regionów ryby
-                for (String region : regions) {
-                    if (fishByRegion.containsKey(region)) {
-                        regionName = region;
-                        break;
-                    }
-                }
+            
+            // Pobierz regiony w lokalizacji złowienia
+            RegionContainer container = WorldGuard.getInstance().getPlatform().getRegionContainer();
+            RegionQuery query = container.createQuery();
+            Set<String> regions = query.getApplicableRegions(BukkitAdapter.adapt(loc))
+                .getRegions().stream()
+                .map(region -> region.getId())
+                .collect(Collectors.toSet());
+            
+            if (!regions.isEmpty()) {
+                // Jeśli są jakieś regiony, użyj pierwszego z nich
+                regionName = regions.iterator().next();
+                plugin.getLogger().info("Znaleziono region dla ryby: " + regionName);
             }
             
             lore.add("§7Łowisko: §f" + regionName);
@@ -548,7 +548,12 @@ public class FishManager {
     public void addFish(Player player, Fish fish) {
         // Ustaw datę i lokalizację złowienia
         fish.setCatchLocation(player.getLocation());
-        fish.setCatchDate(new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm").format(new java.util.Date()));
+        
+        // Utwórz datę dodając 2 godziny do aktualnego czasu
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.HOUR_OF_DAY, 2);
+        fish.setCatchDate(new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm").format(calendar.getTime()));
+        
         fish.setCatcherName(player.getName());
         
         // Stwórz ItemStack ryby
@@ -561,46 +566,135 @@ public class FishManager {
         
         // Dodaj XP w zależności od rzadkości ryby
         String rarityName = fish.getRarity().getName().toLowerCase();
-        int baseXp = plugin.getConfigManager().getXpForRarity(rarityName);
-        double xpMultiplier = plugin.getConfigManager().getXpMultiplier();
-        double finalXp = baseXp * xpMultiplier;
         
-        // Dodaj XP graczowi
+        // Debug info przy przyznawaniu XP
+        plugin.getLogger().info("=== DEBUG XP ===");
+        plugin.getLogger().info("Rzadkość ryby: " + rarityName);
+        
+        // Pobierz bazowe XP dla rzadkości - teraz ConfigManager obsługuje polskie nazwy
+        int baseXp = plugin.getConfigManager().getXpForRarity(rarityName);
+        plugin.getLogger().info("Bazowe XP z konfiguracji: " + baseXp);
+        
+        // Pobierz mnożnik XP
+        double xpMultiplier = plugin.getConfigManager().getXpMultiplier();
+        plugin.getLogger().info("Mnożnik XP z konfiguracji: " + xpMultiplier);
+        
+        // Oblicz finalne XP
+        int finalXp = (int)(baseXp * xpMultiplier);
+        plugin.getLogger().info("Finalne XP (base * multiplier): " + finalXp);
+        
+        // Dodaj XP do postępu gracza
         plugin.getPlayerDataManager().addXp(player, finalXp);
         
-        // Daj rybę graczowi
-        if (player.getInventory().firstEmpty() == -1) {
-            MessageUtils.sendMessage(player, "fishing.inventory_full");
-            // Upuść rybę na ziemię jeśli ekwipunek jest pełny
-            player.getWorld().dropItemNaturally(player.getLocation(), fishItem);
-        } else {
-            player.getInventory().addItem(fishItem);
-            player.updateInventory();
+        // Dodaj rybę do ekwipunku gracza
+        HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(fishItem);
+        
+        if (!leftover.isEmpty()) {
+            // Jeśli ekwipunek jest pełny, upuść rybę na ziemię
+            for (ItemStack item : leftover.values()) {
+                player.getWorld().dropItemNaturally(player.getLocation(), item);
+            }
+            MessageUtils.sendMessage(player, "inventory_full");
         }
         
-        // Aktualizuj poziom i wyświetl informację
-        int currentLevel = plugin.getPlayerDataManager().getLevel(player);
-        double currentXp = plugin.getPlayerDataManager().getCurrentXp(player);
-        double requiredXp = plugin.getPlayerDataManager().getRequiredXp(currentLevel + 1);
+        // Dodaj rybę do listy złowionych przez gracza
+        if (fish.getCatcherName() != null) {
+            playerFish.add(fish);
+        }
         
-        Map<String, String> placeholders = new HashMap<>();
-        placeholders.put("fish_name", fish.getName());
-        placeholders.put("rarity_color", fish.getRarity().getColor());
-        placeholders.put("weight", String.format("%.1f", fish.getWeight()));
-        placeholders.put("value", String.format("%.0f", fish.getValue()));
-        placeholders.put("level", String.valueOf(currentLevel));
-        placeholders.put("current_xp", String.format("%.1f", currentXp));
-        placeholders.put("required_xp", String.format("%.1f", requiredXp));
-        placeholders.put("progress", String.format("%.1f", (currentXp / requiredXp) * 100));
-        placeholders.put("gained_xp", String.format("%.1f", finalXp));
+        // Aktualizuj statystyki gracza
+        plugin.getPlayerDataManager().incrementTotalCatches(player);
+        plugin.getPlayerDataManager().addFishCaught(player, fish.getName());
+        plugin.getPlayerDataManager().addRarityCaught(player, rarityName);
         
-        MessageUtils.sendMessage(player, "fishing.success_with_xp", placeholders);
+        // Aktualizuj statystyki wagi
+        double weight = fish.getWeight();
+        if (weight < 1.0) {
+            plugin.getPlayerDataManager().incrementSmallFishCount(player);
+        } else if (weight < 3.0) {
+            plugin.getPlayerDataManager().incrementMediumFishCount(player);
+        } else if (weight < 5.0) {
+            plugin.getPlayerDataManager().incrementLargeFishCount(player);
+        } else {
+            plugin.getPlayerDataManager().incrementHugeFishCount(player);
+        }
+        
+        // Sprawdź czy to najcięższa ryba gracza
+        plugin.getPlayerDataManager().checkHeaviestFish(player, fish);
+        
+        // Odtwórz dźwięk złowienia
+        player.playSound(player.getLocation(), Sound.valueOf(plugin.getConfigManager().getCatchSound()), 1.0f, 1.0f);
+        
+        // Wyślij wiadomość o złowieniu
+        String message = MessageUtils.getMessage("fish_caught")
+            .replace("%rarity_color%", fish.getRarity().getColor())
+            .replace("%fish_name%", fish.getName())
+            .replace("%weight%", String.format("%.1f", fish.getWeight()))
+            .replace("%value%", String.format("%.2f", fish.calculateValue()))
+            .replace("%xp%", String.valueOf(finalXp));
+        
+        player.sendMessage(MessageUtils.colorize(message));
     }
     
     public void removeFish(UUID playerUUID, Fish fish) {
         playerFish.removeIf(f -> f.getPlayerUUID().equals(playerUUID) && 
             f.getName().equals(fish.getName()) && 
             f.getWeight() == fish.getWeight());
+    }
+    
+    /**
+     * Sprzedaje rybę gracza i aktualizuje statystyki
+     * @param player Gracz sprzedający rybę
+     * @param fish Ryba do sprzedaży
+     * @return Wartość sprzedanej ryby
+     */
+    public double sellFish(Player player, Fish fish) {
+        // Oblicz wartość ryby
+        double value = fish.calculateValue();
+        
+        // Usuń rybę z inventory gracza
+        removeFish(player.getUniqueId(), fish);
+        
+        // Dodaj balans do konta gracza
+        plugin.getPlayerDataManager().addBalance(player, value);
+        
+        // Zaktualizuj statystyki sprzedaży
+        plugin.getPlayerDataManager().registerFishSold(player, fish.getName(), value);
+        
+        return value;
+    }
+    
+    /**
+     * Sprzedaje wszystkie ryby gracza
+     * @param player Gracz sprzedający ryby
+     * @return Łączna wartość sprzedanych ryb
+     */
+    public double sellAllFish(Player player) {
+        // Pobierz wszystkie ryby gracza
+        List<Fish> playerFishes = getPlayerFish(player.getUniqueId());
+        
+        if (playerFishes.isEmpty()) {
+            return 0;
+        }
+        
+        double totalValue = 0;
+        
+        // Sprzedaj każdą rybę
+        for (Fish fish : playerFishes) {
+            double value = fish.calculateValue();
+            totalValue += value;
+            
+            // Zaktualizuj statystyki sprzedaży
+            plugin.getPlayerDataManager().registerFishSold(player, fish.getName(), value);
+        }
+        
+        // Dodaj balans do konta gracza
+        plugin.getPlayerDataManager().addBalance(player, totalValue);
+        
+        // Usuń wszystkie ryby
+        clearPlayerFish(player.getUniqueId());
+        
+        return totalValue;
     }
     
     public List<Fish> getPlayerFish(UUID playerUUID) {
