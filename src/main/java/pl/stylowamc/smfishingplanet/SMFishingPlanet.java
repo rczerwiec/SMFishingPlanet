@@ -28,6 +28,8 @@ import pl.stylowamc.smfishingplanet.menus.SellMenu;
 import pl.stylowamc.smfishingplanet.utils.MessageUtils;
 import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.command.CommandExecutor;
+import java.util.Map;
+import java.util.UUID;
 
 public class SMFishingPlanet extends JavaPlugin {
     private static SMFishingPlanet instance;
@@ -95,7 +97,7 @@ public class SMFishingPlanet extends JavaPlugin {
         }
         
         // Profesjonalna wędka
-        ShapedRecipe proRodRecipe = rodRecipe.createProRodRecipe();
+        ShapedRecipe proRodRecipe = rodRecipe.createProfessionalRodRecipe();
         if (proRodRecipe != null) {
             Bukkit.removeRecipe(proRodRecipe.getKey());
             getServer().addRecipe(proRodRecipe);
@@ -170,10 +172,43 @@ public class SMFishingPlanet extends JavaPlugin {
     }
 
     public void reloadPlugin() {
+        // Zapisz dane graczy przed przeładowaniem
+        if (playerDataManager != null) {
+            getLogger().info("Zapisywanie danych graczy przed przeładowaniem pluginu...");
+            playerDataManager.saveAllPlayers();
+        }
+        
+        // Przechowaj tymczasowo dane graczy
+        Map<UUID, PlayerDataManager.PlayerData> tempPlayerData = null;
+        if (playerDataManager != null) {
+            tempPlayerData = playerDataManager.getAllPlayerData();
+            getLogger().info("Przechowano tymczasowo dane " + tempPlayerData.size() + " graczy");
+            
+            // Wyświetl poziomy graczy dla debugowania
+            for (Map.Entry<UUID, PlayerDataManager.PlayerData> entry : tempPlayerData.entrySet()) {
+                getLogger().info("Gracz " + entry.getKey() + ": poziom = " + entry.getValue().getLevel());
+            }
+        }
+        
+        // Przeładuj konfiguracje
+        getLogger().info("Przeładowywanie konfiguracji...");
         reloadConfig();
         configManager.loadConfigs();
         MessageUtils.reloadMessages();
         fishManager.reloadFish();
+        
+        // Przywróć dane graczy po przeładowaniu, jeśli były wcześniej zapisane
+        if (tempPlayerData != null && playerDataManager != null) {
+            getLogger().info("Przywracanie danych graczy po przeładowaniu...");
+            playerDataManager.restorePlayerData(tempPlayerData);
+            
+            // Wyświetl poziomy graczy dla debugowania po przywróceniu
+            for (Map.Entry<UUID, PlayerDataManager.PlayerData> entry : playerDataManager.getAllPlayerData().entrySet()) {
+                getLogger().info("Gracz " + entry.getKey() + " po przeładowaniu: poziom = " + entry.getValue().getLevel());
+            }
+            
+            getLogger().info("Przywrócono dane graczy po przeładowaniu pluginu.");
+        }
     }
 
     private void registerCommands() {

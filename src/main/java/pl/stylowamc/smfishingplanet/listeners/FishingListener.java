@@ -323,8 +323,23 @@ public class FishingListener implements Listener {
         // Pobierz bonusy z wędki
         ItemStack rod = player.getInventory().getItemInMainHand();
         double rareFishChance = plugin.getFishingRod().getBonus(rod, "rare_fish_chance");
+        double doubleCatchChance = plugin.getFishingRod().getBonus(rod, "double_catch_chance");
         String rodType = plugin.getFishingRod().getRodType(rod);
         plugin.getLogger().info("DEBUG: Gracz " + player.getName() + " próbuje złowić rybę z bonusem rzadkości: " + rareFishChance);
+        plugin.getLogger().info("DEBUG: Szansa na podwójne złowienie: " + doubleCatchChance);
+        
+        // Zmniejsz wytrzymałość wędki
+        if (plugin.getFishingRod().isFishingRod(rod)) {
+            plugin.getFishingRod().damageFishingRod(rod);
+            
+            // Sprawdź czy wędka się złamała
+            if (plugin.getFishingRod().getDurability(rod) <= 0) {
+                player.getInventory().setItemInMainHand(null);
+                player.playSound(player.getLocation(), Sound.ENTITY_ITEM_BREAK, 1.0f, 1.0f);
+                MessageUtils.sendMessage(player, "rod.broken");
+                return;
+            }
+        }
         
         // Sprawdź, czy gracz powinien otrzymać żyłkę
         if (rodType != null && pl.stylowamc.smfishingplanet.models.FishingLine.shouldDropLine(rodType)) {
@@ -388,8 +403,8 @@ public class FishingListener implements Listener {
             plugin.getPlayerDataManager().registerStatCatch(player, fish);
             
             // Złów drugą rybę (jeśli mamy szczęście)
-            if (Math.random() < 0.05) {  // 5% szans na złowienie drugiej ryby
-                plugin.getLogger().info("DEBUG: Gracz " + player.getName() + " ma szczęście i łowi drugą rybę!");
+            if (Math.random() < doubleCatchChance) {  // Używamy szansy z wędki zamiast stałej wartości
+                plugin.getLogger().info("DEBUG: Gracz " + player.getName() + " ma szczęście i łowi drugą rybę! (Szansa: " + doubleCatchChance + ")");
                 Fish secondFish = plugin.getFishManager().getRandomFish(player);
                 if (secondFish != null) {
                     plugin.getFishManager().addFish(player, secondFish);
@@ -402,17 +417,6 @@ public class FishingListener implements Listener {
             
             // Dodaj efekty
             playFishingSuccessEffects(player, hookLocation);
-        }
-        
-        // Zmniejsz wytrzymałość wędki
-        ItemStack fishingRod = player.getInventory().getItemInMainHand();
-        if (plugin.getFishingRod().isFishingRod(fishingRod)) {
-            plugin.getFishingRod().damageFishingRod(fishingRod);
-            int durability = plugin.getFishingRod().getDurability(fishingRod);
-            if (durability <= 0) {
-                player.getInventory().setItemInMainHand(null);
-                MessageUtils.sendMessage(player, "rod.broken");
-            }
         }
     }
 

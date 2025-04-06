@@ -657,10 +657,15 @@ public class PlayerDataManager {
         }
     }
 
-    public void addEarnings(Player player, double amount) {
+    /**
+     * Dodaje zarobek do statystyk gracza
+     * @param player Gracz, którego statystyki aktualizujemy
+     * @param earnings Kwota zarobku
+     */
+    public void addEarnings(Player player, double earnings) {
         PlayerData data = getPlayerData(player);
-        data.addEarnings(amount);
-        savePlayerData(player);
+        data.addEarnings(earnings);
+        savePlayer(player.getUniqueId()); // Zapisz dane po aktualizacji
     }
 
     /**
@@ -672,7 +677,32 @@ public class PlayerDataManager {
         savePlayerData(player);
     }
 
-    private static class PlayerData {
+    /**
+     * Zwraca kopię wszystkich danych graczy
+     * @return Mapa zawierająca dane wszystkich graczy
+     */
+    public Map<UUID, PlayerData> getAllPlayerData() {
+        // Zwróć kopię mapy, aby uniknąć modyfikacji oryginalnych danych
+        return new HashMap<>(playerData);
+    }
+    
+    /**
+     * Przywraca dane graczy z podanej mapy
+     * @param data Mapa zawierająca dane graczy do przywrócenia
+     */
+    public void restorePlayerData(Map<UUID, PlayerData> data) {
+        if (data == null || data.isEmpty()) {
+            plugin.getLogger().warning("Próba przywrócenia pustych danych graczy!");
+            return;
+        }
+        
+        // Przywróć dane graczy - usuń najpierw starą mapę i zastąp ją nową
+        playerData.clear();
+        playerData.putAll(data);
+        plugin.getLogger().info("Przywrócono dane dla " + data.size() + " graczy.");
+    }
+
+    public static class PlayerData {
         private double balance;
         private int level;
         private double xp;

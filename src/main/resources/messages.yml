@@ -4,6 +4,7 @@ no_permission: "&cNie masz uprawnień do użycia tej komendy!"
 player_only: "&cTa komenda jest dostępna tylko dla graczy!"
 reload_success: "&aKonfiguracja została przeładowana!"
 fish_caught: "&aZłowiłeś %rarity_color%%fish_name% &7(&f%weight%kg&7) o wartości &e%value%$&7! &8(&b+%xp% XP&8)"
+level_up: "&aGratulacje! Awansowałeś na poziom &e%level%&a!"
 
 # Wiadomości związane z wędkami
 rod:

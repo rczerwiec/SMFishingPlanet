@@ -511,7 +511,12 @@ public class FishManager {
         }
         
         if (fish.getCatchDate() != null) {
-            lore.add("§7Data złowienia: §f" + fish.getCatchDate());
+            // Wyodrębnij tylko datę z pełnego formatu daty i godziny (format: dd/MM/yyyy HH:mm)
+            String catchDate = fish.getCatchDate();
+            if (catchDate.contains(" ")) {
+                catchDate = catchDate.split(" ")[0]; // Pobierz tylko część z datą (dd/MM/yyyy)
+            }
+            lore.add("§7Data złowienia: §f" + catchDate);
         }
         
         if (fish.getCatcherName() != null) {
@@ -549,10 +554,9 @@ public class FishManager {
         // Ustaw datę i lokalizację złowienia
         fish.setCatchLocation(player.getLocation());
         
-        // Utwórz datę dodając 2 godziny do aktualnego czasu
-        Calendar calendar = Calendar.getInstance();
-        calendar.add(Calendar.HOUR_OF_DAY, 2);
-        fish.setCatchDate(new java.text.SimpleDateFormat("dd/MM/yyyy HH:mm").format(calendar.getTime()));
+        // Utwórz datę dodając tylko datę bez godziny
+        java.text.SimpleDateFormat dateFormat = new java.text.SimpleDateFormat("dd/MM/yyyy");
+        fish.setCatchDate(dateFormat.format(new java.util.Date()));
         
         fish.setCatcherName(player.getName());
         

@@ -6,17 +6,14 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.RecipeChoice;
 import org.bukkit.inventory.ShapedRecipe;
 import pl.stylowamc.smfishingplanet.SMFishingPlanet;
-import pl.stylowamc.smfishingplanet.items.FishingLine;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.ChatColor;
 
 public class FishingRodRecipe {
     private final SMFishingPlanet plugin;
-    private final FishingLine fishingLine;
     
     public FishingRodRecipe(SMFishingPlanet plugin) {
         this.plugin = plugin;
-        this.fishingLine = new FishingLine(plugin);
     }
     
     private boolean isFishingLine(ItemStack item, String size) {
@@ -70,15 +67,17 @@ public class FishingRodRecipe {
         // Stwórz recepturę
         ShapedRecipe recipe = new ShapedRecipe(key, basicRod);
         
-        // Ustaw kształt (0 - puste, 1 - patyk, 2 - żyłka)
-        recipe.shape("  I", " I2", "I 2");
+        // Ustaw kształt (0 - puste, I - składnik (patyk/ingot), L - żyłka)
+        recipe.shape("  I", " IL", "I L");
         
-        // Stwórz żyłkę jako składnik
-        ItemStack fishingLineItem = fishingLine.createFishingLine();
+        // Stwórz żyłkę jako składnik - używamy żyłki z pl.stylowamc.smfishingplanet.models.FishingLine
+        pl.stylowamc.smfishingplanet.models.FishingLine fishingLineModel = 
+            pl.stylowamc.smfishingplanet.models.FishingLine.getLineForRodType("basic");
+        ItemStack fishingLineItem = fishingLineModel.createItemStack();
         
         // Ustaw składniki
         recipe.setIngredient('I', Material.STICK); // patyk
-        recipe.setIngredient('2', createFishingLineChoice(fishingLineItem)); // dokładnie nasza żyłka
+        recipe.setIngredient('L', createFishingLineChoice(fishingLineItem)); // dokładnie nasza żyłka
         
         return recipe;
     }
@@ -90,29 +89,35 @@ public class FishingRodRecipe {
         NamespacedKey key = new NamespacedKey(plugin, "advanced_fishing_rod");
         ShapedRecipe recipe = new ShapedRecipe(key, advancedRod);
         
-        recipe.shape("  I", " I4", "I 4");
+        recipe.shape("  I", " IL", "I L");
         
-        ItemStack fishingLineItem = fishingLine.createFishingLine4mm();
+        // Używamy żyłki z modelu zamiast z items
+        pl.stylowamc.smfishingplanet.models.FishingLine fishingLineModel = 
+            pl.stylowamc.smfishingplanet.models.FishingLine.getLineForRodType("basic");
+        ItemStack fishingLineItem = fishingLineModel.createItemStack();
         
         recipe.setIngredient('I', Material.IRON_INGOT);
-        recipe.setIngredient('4', createFishingLineChoice(fishingLineItem));
+        recipe.setIngredient('L', createFishingLineChoice(fishingLineItem));
         
         return recipe;
     }
     
-    public ShapedRecipe createProRodRecipe() {
-        ItemStack proRod = plugin.getFishingRod().createFishingRod("pro");
+    public ShapedRecipe createProfessionalRodRecipe() {
+        ItemStack proRod = plugin.getFishingRod().createFishingRod("professional");
         if (proRod == null) return null;
         
-        NamespacedKey key = new NamespacedKey(plugin, "pro_fishing_rod");
+        NamespacedKey key = new NamespacedKey(plugin, "professional_fishing_rod");
         ShapedRecipe recipe = new ShapedRecipe(key, proRod);
         
-        recipe.shape("  I", " I5", "I 5");
+        recipe.shape("  I", " IL", "I L");
         
-        ItemStack fishingLineItem = fishingLine.createFishingLine5mm();
+        // Używamy żyłki z modelu zamiast z items
+        pl.stylowamc.smfishingplanet.models.FishingLine fishingLineModel = 
+            pl.stylowamc.smfishingplanet.models.FishingLine.getLineForRodType("advanced");
+        ItemStack fishingLineItem = fishingLineModel.createItemStack();
         
         recipe.setIngredient('I', Material.GOLD_INGOT);
-        recipe.setIngredient('5', createFishingLineChoice(fishingLineItem));
+        recipe.setIngredient('L', createFishingLineChoice(fishingLineItem));
         
         return recipe;
     }
@@ -124,12 +129,15 @@ public class FishingRodRecipe {
         NamespacedKey key = new NamespacedKey(plugin, "master_fishing_rod");
         ShapedRecipe recipe = new ShapedRecipe(key, masterRod);
         
-        recipe.shape("  I", " I6", "I 6");
+        recipe.shape("  I", " IL", "I L");
         
-        ItemStack fishingLineItem = fishingLine.createFishingLine6mm();
+        // Używamy żyłki z modelu zamiast z items
+        pl.stylowamc.smfishingplanet.models.FishingLine fishingLineModel = 
+            pl.stylowamc.smfishingplanet.models.FishingLine.getLineForRodType("professional");
+        ItemStack fishingLineItem = fishingLineModel.createItemStack();
         
         recipe.setIngredient('I', Material.DIAMOND);
-        recipe.setIngredient('6', createFishingLineChoice(fishingLineItem));
+        recipe.setIngredient('L', createFishingLineChoice(fishingLineItem));
         
         return recipe;
     }

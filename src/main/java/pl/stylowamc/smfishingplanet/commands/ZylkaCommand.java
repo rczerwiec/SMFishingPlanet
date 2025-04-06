@@ -4,23 +4,22 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import pl.stylowamc.smfishingplanet.SMFishingPlanet;
-import pl.stylowamc.smfishingplanet.items.FishingLine;
 import pl.stylowamc.smfishingplanet.utils.MessageUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class ZylkaCommand implements CommandExecutor, TabCompleter {
     private final SMFishingPlanet plugin;
-    private final FishingLine fishingLine;
     
     public ZylkaCommand(SMFishingPlanet plugin) {
         this.plugin = plugin;
-        this.fishingLine = new FishingLine(plugin);
     }
     
     @Override
@@ -38,27 +37,66 @@ public class ZylkaCommand implements CommandExecutor, TabCompleter {
         }
         
         if (args.length != 1) {
-            player.sendMessage(MessageUtils.colorize("&cUżycie: /zylka <2mm/4mm/5mm/6mm>"));
+            player.sendMessage(MessageUtils.colorize("&cUżycie: /zylka <typ>"));
+            List<String> availableTypes = getAvailableFishingLineTypes();
+            player.sendMessage(MessageUtils.colorize("&cDostępne typy: " + String.join(", ", availableTypes)));
             return true;
         }
         
+        String requestedType = args[0].toLowerCase();
         ItemStack zylka = null;
-        switch (args[0].toLowerCase()) {
-            case "2mm":
-                zylka = fishingLine.createFishingLine();
-                break;
-            case "4mm":
-                zylka = fishingLine.createFishingLine4mm();
-                break;
-            case "5mm":
-                zylka = fishingLine.createFishingLine5mm();
-                break;
-            case "6mm":
-                zylka = fishingLine.createFishingLine6mm();
-                break;
-            default:
-                player.sendMessage(MessageUtils.colorize("&cNieprawidłowy rozmiar żyłki! Dostępne: 2mm, 4mm, 5mm, 6mm"));
+        
+        // Pobierz sekcję z konfiguracją żyłek
+        ConfigurationSection linesSection = plugin.getConfig().getConfigurationSection("fishing_lines");
+        
+        if (linesSection != null) {
+            // Sprawdź czy żądany typ żyłki istnieje w konfiguracji
+            boolean found = false;
+            
+            for (String key : linesSection.getKeys(false)) {
+                String lineName = linesSection.getString(key + ".name", "").toLowerCase();
+                
+                if (key.equalsIgnoreCase(requestedType) || 
+                    (lineName.contains("żyłka") && lineName.contains(requestedType))) {
+                    // Znaleziono żyłkę w konfiguracji
+                    found = true;
+                    
+                    // Użyj modelu FishingLine z pakietu models
+                    pl.stylowamc.smfishingplanet.models.FishingLine fishingLine = 
+                        pl.stylowamc.smfishingplanet.models.FishingLine.getLineForRodType(key);
+                    zylka = fishingLine.createItemStack();
+                    break;
+                }
+            }
+            
+            if (!found) {
+                player.sendMessage(MessageUtils.colorize("&cNieprawidłowy typ żyłki!"));
+                List<String> availableTypes = getAvailableFishingLineTypes();
+                player.sendMessage(MessageUtils.colorize("&cDostępne typy: " + String.join(", ", availableTypes)));
                 return true;
+            }
+        } else {
+            // Jeśli brak konfiguracji, używaj domyślnych typów
+            pl.stylowamc.smfishingplanet.models.FishingLine fishingLine;
+            
+            switch (requestedType) {
+                case "4mm":
+                case "basic":
+                    fishingLine = pl.stylowamc.smfishingplanet.models.FishingLine.getLineForRodType("basic");
+                    break;
+                case "5mm":
+                case "advanced":
+                    fishingLine = pl.stylowamc.smfishingplanet.models.FishingLine.getLineForRodType("advanced");
+                    break;
+                case "6mm":
+                case "professional":
+                    fishingLine = pl.stylowamc.smfishingplanet.models.FishingLine.getLineForRodType("professional");
+                    break;
+                default:
+                    player.sendMessage(MessageUtils.colorize("&cNieprawidłowy typ żyłki! Dostępne typy: basic (4mm), advanced (5mm), professional (6mm)"));
+                    return true;
+            }
+            zylka = fishingLine.createItemStack();
         }
         
         if (player.getInventory().firstEmpty() == -1) {
@@ -74,15 +112,26 @@ public class ZylkaCommand implements CommandExecutor, TabCompleter {
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
-            List<String> completions = Arrays.asList("2mm", "4mm", "5mm", "6mm");
-            List<String> suggestions = new ArrayList<>();
-            for (String completion : completions) {
-                if (completion.toLowerCase().startsWith(args[0].toLowerCase())) {
-                    suggestions.add(completion);
-                }
-            }
-            return suggestions;
+            List<String> suggestions = getAvailableFishingLineTypes();
+            return suggestions.stream()
+                    .filter(type -> type.toLowerCase().startsWith(args[0].toLowerCase()))
+                    .collect(Collectors.toList());
         }
         return new ArrayList<>();
+    }
+    
+    /**
+     * Pobiera listę dostępnych typów żyłek z konfiguracji
+     * @return Lista typów żyłek (nazwy sekcji z config.yml)
+     */
+    private List<String> getAvailableFishingLineTypes() {
+        ConfigurationSection linesSection = plugin.getConfig().getConfigurationSection("fishing_lines");
+        
+        if (linesSection != null) {
+            return new ArrayList<>(linesSection.getKeys(false));
+        } else {
+            // Jeśli brak konfiguracji, użyj wartości domyślnych
+            return Arrays.asList("basic", "advanced", "professional");
+        }
     }
 } 

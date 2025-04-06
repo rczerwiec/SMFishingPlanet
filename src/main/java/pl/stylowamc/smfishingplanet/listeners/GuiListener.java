@@ -180,7 +180,13 @@ public class GuiListener implements Listener {
         }
         
         if (soldCount > 0) {
+            // Dodaj pieniądze do konta gracza
             plugin.getEconomy().depositPlayer(player, totalValue);
+            
+            // Dodaj sprzedaż do statystyk
+            plugin.getPlayerDataManager().addEarnings(player, totalValue);
+            
+            // Wyślij wiadomość o sprzedaży
             Map<String, String> placeholders = new HashMap<>();
             placeholders.put("amount", String.valueOf(soldCount));
             placeholders.put("value", String.format("%.2f", totalValue));
@@ -192,6 +198,8 @@ public class GuiListener implements Listener {
 
     private void sellCategoryFish(Player player, Inventory categoryMenu) {
         String category = "";
+        
+        // Znajdź nazwę kategorii z menu
         for (ItemStack item : categoryMenu.getContents()) {
             if (item != null && item.hasItemMeta() && item.getItemMeta().hasLore()) {
                 List<String> lore = item.getItemMeta().getLore();
@@ -206,17 +214,60 @@ public class GuiListener implements Listener {
         }
         
         if (category.isEmpty()) {
+            plugin.getLogger().warning("Nie znaleziono kategorii w menu sprzedaży!");
             MessageUtils.sendMessage(player, "sell.error");
             return;
         }
 
+        plugin.getLogger().info("Sprzedawanie ryb z kategorii: " + category);
         double totalValue = 0.0;
         int soldCount = 0;
-
+        
+        // Sprawdź czy kategoria istnieje w konfiguracji
+        ConfigurationSection categoriesSection = plugin.getConfigManager().getFishConfig().getConfigurationSection("categories");
+        if (categoriesSection == null || !categoriesSection.contains(category)) {
+            plugin.getLogger().warning("Nie znaleziono kategorii: " + category + " w konfiguracji!");
+            MessageUtils.sendMessage(player, "sell.error");
+            return;
+        }
+        
+        // Pobierz listę ryb w tej kategorii
+        ConfigurationSection fishSection = categoriesSection.getConfigurationSection(category + ".fish");
+        if (fishSection == null) {
+            plugin.getLogger().warning("Brak ryb w kategorii: " + category);
+            MessageUtils.sendMessage(player, "sell.nothing");
+            return;
+        }
+        
+        List<String> fishTypesInCategory = new ArrayList<>(fishSection.getKeys(false));
+        
+        // Sprawdź każdy przedmiot w ekwipunku gracza
         for (ItemStack item : player.getInventory().getContents()) {
-            if (item != null && item.getType() == Material.COD && item.hasItemMeta() && 
-                item.getItemMeta().hasLore() && isFishInCategory(item, category)) {
-                List<String> lore = item.getItemMeta().getLore();
+            if (item == null || !item.hasItemMeta() || !item.getItemMeta().hasLore()) continue;
+            
+            // Sprawdź czy to ryba
+            List<String> lore = item.getItemMeta().getLore();
+            boolean isFishFromCategory = false;
+            
+            // Najpierw sprawdź czy w lore jest informacja o nazwie ryby
+            String fishDisplayName = "";
+            if (item.getItemMeta().hasDisplayName()) {
+                fishDisplayName = MessageUtils.stripColor(item.getItemMeta().getDisplayName());
+            }
+            
+            // Sprawdź czy nazwa ryby pasuje do listy ryb w kategorii
+            for (String fishType : fishTypesInCategory) {
+                // Pobierz nazwę ryby z konfiguracji
+                String configFishName = categoriesSection.getString(category + ".fish." + fishType + ".name", "");
+                
+                if (!configFishName.isEmpty() && fishDisplayName.contains(configFishName)) {
+                    isFishFromCategory = true;
+                    break;
+                }
+            }
+            
+            // Jeśli to ryba z tej kategorii, sprzedaj ją
+            if (isFishFromCategory) {
                 for (String line : lore) {
                     if (line.contains("Wartość:")) {
                         try {
@@ -239,14 +290,22 @@ public class GuiListener implements Listener {
             }
         }
 
+        plugin.getLogger().info("Sprzedano " + soldCount + " ryb z kategorii " + category + " za " + totalValue);
+        
         if (soldCount > 0) {
+            // Dodaj pieniądze do konta gracza
             plugin.getEconomy().depositPlayer(player, totalValue);
+            
+            // Dodaj sprzedaż do statystyk
+            plugin.getPlayerDataManager().addEarnings(player, totalValue);
+            
+            // Wyślij komunikat
             Map<String, String> placeholders = new HashMap<>();
             placeholders.put("amount", String.valueOf(soldCount));
             placeholders.put("value", String.format("%.2f", totalValue));
             MessageUtils.sendMessage(player, "sell.success", placeholders);
         } else {
-            MessageUtils.sendMessage(player, "sell.no_fish");
+            MessageUtils.sendMessage(player, "sell.nothing");
         }
     }
 
@@ -285,14 +344,20 @@ public class GuiListener implements Listener {
         }
         
         if (soldCount > 0) {
+            // Dodaj pieniądze do konta gracza
             plugin.getEconomy().depositPlayer(player, totalValue);
+            
+            // Dodaj sprzedaż do statystyk
+            plugin.getPlayerDataManager().addEarnings(player, totalValue);
+            
+            // Wyślij komunikat
             Map<String, String> placeholders = new HashMap<>();
             placeholders.put("amount", String.valueOf(soldCount));
             placeholders.put("value", String.format("%.2f", totalValue));
             placeholders.put("fish_name", fishName);
             MessageUtils.sendMessage(player, "sell.success", placeholders);
         } else {
-            MessageUtils.sendMessage(player, "sell.no_fish");
+            MessageUtils.sendMessage(player, "sell.nothing");
         }
     }
 
