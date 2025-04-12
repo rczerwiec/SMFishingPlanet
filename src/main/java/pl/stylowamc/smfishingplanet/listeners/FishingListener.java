@@ -29,6 +29,7 @@ import pl.stylowamc.smfishingplanet.SMFishingPlanet;
 import pl.stylowamc.smfishingplanet.models.Fish;
 import pl.stylowamc.smfishingplanet.utils.FishingBar;
 import pl.stylowamc.smfishingplanet.utils.MessageUtils;
+import pl.stylowamc.smfishingplanet.items.FishingRod;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -50,31 +51,40 @@ public class FishingListener implements Listener {
     @EventHandler
     public void onPlayerFish(PlayerFishEvent event) {
         Player player = event.getPlayer();
-        ItemStack rod = player.getInventory().getItemInMainHand();
-
-        if (plugin.getConfigManager().getConfig().getBoolean("debug", false)) {
-            player.sendMessage("§8[DEBUG] §7Event: §f" + event.getState().name());
-            player.sendMessage("§8[DEBUG] §7Rod type: §f" + (plugin.getFishingRod().isFishingRod(rod) ? "Plugin Rod" : "Vanilla Rod"));
+        ItemStack item = player.getInventory().getItemInMainHand();
+        
+        if (!plugin.getFishingRod().isFishingRod(item)) {
+            return;
         }
 
-        // Sprawdź czy to jest nasza wędka czy vanilla
-        boolean isPluginRod = plugin.getFishingRod().isFishingRod(rod);
+        FishingRod rod = plugin.getFishingRod().getRodFromItem(item);
+        if (rod == null) {
+            return;
+        }
 
-        // Jeśli to zwykła wędka, pozwól na normalną mechanikę
-        if (!isPluginRod) {
+        // Sprawdź czy gracz może używać wędki w tym regionie
+        if (!rod.canUseInRegion(player)) {
+            event.setCancelled(true);
             return;
         }
 
         // Sprawdź poziom gracza
-        String rodType = plugin.getFishingRod().getRodType(rod);
-        if (rodType == null) return;
-        
-        int requiredLevel = plugin.getConfigManager().getConfig().getInt("fishing_rod." + rodType + ".required_level", 1);
-        int playerLevel = plugin.getPlayerDataManager().getLevel(player);
-        
-        if (playerLevel < requiredLevel) {
+        if (plugin.getPlayerDataManager().getLevel(player) < rod.getRequiredLevel()) {
             event.setCancelled(true);
-            MessageUtils.sendMessage(player, "rod_not_allowed", "level", String.valueOf(requiredLevel));
+            MessageUtils.sendMessage(player, "fishing.level_too_low");
+            return;
+        }
+
+        if (plugin.getConfigManager().getConfig().getBoolean("debug", false)) {
+            player.sendMessage("§8[DEBUG] §7Event: §f" + event.getState().name());
+            player.sendMessage("§8[DEBUG] §7Rod type: §f" + (plugin.getFishingRod().isFishingRod(item) ? "Plugin Rod" : "Vanilla Rod"));
+        }
+
+        // Sprawdź czy to jest nasza wędka czy vanilla
+        boolean isPluginRod = plugin.getFishingRod().isFishingRod(item);
+
+        // Jeśli to zwykła wędka, pozwól na normalną mechanikę
+        if (!isPluginRod) {
             return;
         }
 
@@ -317,7 +327,7 @@ public class FishingListener implements Listener {
         return progress >= sweetSpotStart && progress <= sweetSpotStart + sweetSpotSize;
     }
 
-    public void handleFishingSuccess(Player player, Location hookLocation) {
+    private void handleFishingSuccess(Player player, Location hookLocation) {
         plugin.getLogger().info("\n\n===== ROZPOCZYNAM HANDLEFISHINGSUCCESS =====");
         
         // Pobierz bonusy z wędki
@@ -342,25 +352,51 @@ public class FishingListener implements Listener {
         }
         
         // Sprawdź, czy gracz powinien otrzymać żyłkę
-        if (rodType != null && pl.stylowamc.smfishingplanet.models.FishingLine.shouldDropLine(rodType)) {
-            plugin.getLogger().info("DEBUG: Gracz " + player.getName() + " złowił żyłkę dla wędki typu: " + rodType);
-            
-            // Utwórz odpowiednią żyłkę
-            pl.stylowamc.smfishingplanet.models.FishingLine fishingLine = 
-                pl.stylowamc.smfishingplanet.models.FishingLine.getLineForRodType(rodType);
-            ItemStack lineItem = fishingLine.createItemStack();
-            
-            // Dodaj żyłkę do ekwipunku gracza
-            if (player.getInventory().firstEmpty() != -1) {
-                player.getInventory().addItem(lineItem);
-                player.sendMessage(MessageUtils.colorize("&a&lGratulacje! &7Znalazłeś &b" + fishingLine.getName() + "&7!"));
-            } else {
-                // Jeśli ekwipunek jest pełny, upuść przedmiot na ziemię
-                player.getWorld().dropItemNaturally(player.getLocation(), lineItem);
-                MessageUtils.sendMessage(player, "inventory_full");
+        if (rodType != null) {
+            if (rodType.equals("master")) {
+                // Dla wędki mistrzowskiej - losowa żyłka
+                String[] rodTypes = {"basic", "advanced", "professional", "master"};
+                String randomType = rodTypes[random.nextInt(rodTypes.length)];
+                pl.stylowamc.smfishingplanet.models.FishingLine fishingLine = 
+                    pl.stylowamc.smfishingplanet.models.FishingLine.getLineForRodType(randomType);
+                ItemStack lineItem = fishingLine.createItemStack();
+                
+                if (player.getInventory().firstEmpty() != -1) {
+                    player.getInventory().addItem(lineItem);
+                    player.sendMessage(MessageUtils.colorize("&a&lGratulacje! &7Znalazłeś &b" + fishingLine.getName() + "&7!"));
+                } else {
+                    player.getWorld().dropItemNaturally(player.getLocation(), lineItem);
+                    MessageUtils.sendMessage(player, "inventory_full");
+                }
+            } else if (pl.stylowamc.smfishingplanet.models.FishingLine.shouldDropLine(rodType)) {
+                // Dla pozostałych wędek - odpowiednia żyłka zgodnie z konfiguracją
+                String lineType;
+                switch (rodType) {
+                    case "basic":
+                        lineType = "advanced"; // 4mm dla wędki podstawowej
+                        break;
+                    case "advanced":
+                        lineType = "professional"; // 5mm dla wędki zaawansowanej
+                        break;
+                    case "professional":
+                        lineType = "master"; // 6mm dla wędki profesjonalnej
+                        break;
+                    default:
+                        lineType = "basic"; // 2mm dla zwykłej wędki
+                }
+                
+                pl.stylowamc.smfishingplanet.models.FishingLine fishingLine = 
+                    pl.stylowamc.smfishingplanet.models.FishingLine.getLineForRodType(lineType);
+                ItemStack lineItem = fishingLine.createItemStack();
+                
+                if (player.getInventory().firstEmpty() != -1) {
+                    player.getInventory().addItem(lineItem);
+                    player.sendMessage(MessageUtils.colorize("&a&lGratulacje! &7Znalazłeś &b" + fishingLine.getName() + "&7!"));
+                } else {
+                    player.getWorld().dropItemNaturally(player.getLocation(), lineItem);
+                    MessageUtils.sendMessage(player, "inventory_full");
+                }
             }
-            
-            return;
         }
         
         // Pobierz szansę na złowienie śmieci

@@ -388,6 +388,7 @@ public class FishManager {
         double totalChance = 0;
         for (WeightRange range : ranges) {
             if (range.getRarity() != null) {
+                // Dla wędki podstawowej (rarityBonus = 1.0) nie modyfikujemy szans
                 if (rarityBonus > 1.0) {
                     String rarityName = range.getRarity().getName().toLowerCase();
                     switch (rarityName) {
@@ -416,6 +417,7 @@ public class FishManager {
                             totalChance += range.getRarity().getChance();
                     }
                 } else {
+                    // Dla wędki podstawowej używamy normalnych szans
                     totalChance += range.getRarity().getChance();
                 }
             }
@@ -432,6 +434,7 @@ public class FishManager {
         for (WeightRange range : ranges) {
             if (range.getRarity() != null) {
                 double chance = range.getRarity().getChance();
+                // Dla wędki podstawowej (rarityBonus = 1.0) nie modyfikujemy szans
                 if (rarityBonus > 1.0) {
                     String rarityName = range.getRarity().getName().toLowerCase();
                     switch (rarityName) {

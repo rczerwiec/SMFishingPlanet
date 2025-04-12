@@ -27,6 +27,7 @@ fishing:
   wrong_world: "&cNie możesz tutaj łowić ryb!"
   cooldown: "&cMusisz poczekać §e%time%s §caby ponownie łowić!"
   level_progress: "&7Poziom: &b%level% &8| &7XP: &b%current_xp%&7/&b%required_xp% &8(&b%progress%%&8)"
+  region_not_allowed: "&cNie możesz używać tej wędki w regionie %region%!"
 
 # Wiadomości związane ze sprzedażą
 sell:

@@ -75,17 +75,29 @@ public class FishingLine {
     }
     
     private static void createDefaultFishingLines() {
-        fishingLinesByRodType.put("basic", new FishingLine("Żyłka 4mm", Material.STRING, 
+        fishingLinesByRodType.put("basic", new FishingLine("Żyłka 2mm", Material.STRING, 
                                   List.of("&7Podstawowa żyłka wędkarska.", 
-                                         "&7Używana do &aWędki Podstawowej&7."), 5.0, "basic"));
+                                         "&7Używana do &aWędki Podstawowej&7.",
+                                         "",
+                                         "&a✓ &7Można używać w craftingu wędek!"), 5.0, "basic"));
         
-        fishingLinesByRodType.put("advanced", new FishingLine("Żyłka 5mm", Material.STRING, 
+        fishingLinesByRodType.put("advanced", new FishingLine("Żyłka 4mm", Material.STRING, 
                                    List.of("&7Wzmocniona żyłka wędkarska.", 
-                                          "&7Używana do &bWędki Zaawansowanej&7."), 3.0, "advanced"));
+                                          "&7Używana do &bWędki Zaawansowanej&7.",
+                                          "",
+                                          "&a✓ &7Można używać w craftingu wędek!"), 3.0, "advanced"));
         
-        fishingLinesByRodType.put("professional", new FishingLine("Żyłka 6mm", Material.STRING, 
+        fishingLinesByRodType.put("professional", new FishingLine("Żyłka 5mm", Material.STRING, 
                                    List.of("&7Profesjonalna żyłka wędkarska.", 
-                                          "&7Używana do &dWędki Profesjonalnej&7."), 2.0, "professional"));
+                                          "&7Używana do &dWędki Profesjonalnej&7.",
+                                          "",
+                                          "&a✓ &7Można używać w craftingu wędek!"), 2.0, "professional"));
+        
+        fishingLinesByRodType.put("master", new FishingLine("Żyłka 6mm", Material.STRING, 
+                                   List.of("&7Mistrzowska żyłka wędkarska.", 
+                                          "&7Używana do &6Wędki Mistrza&7.",
+                                          "",
+                                          "&a✓ &7Można używać w craftingu wędek!"), 1.0, "master"));
     }
     
     public String getName() {
@@ -139,7 +151,7 @@ public class FishingLine {
         }
         
         return fishingLinesByRodType.getOrDefault(rodType, fishingLinesByRodType.getOrDefault("basic", 
-               new FishingLine("Żyłka 4mm", Material.STRING, List.of("&7Podstawowa żyłka wędkarska."), 5.0, "basic")));
+               new FishingLine("Żyłka 2mm", Material.STRING, List.of("&7Podstawowa żyłka wędkarska."), 5.0, "basic")));
     }
     
     public static boolean shouldDropLine(String rodType) {

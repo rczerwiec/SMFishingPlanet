@@ -8,6 +8,8 @@ import org.bukkit.inventory.ShapedRecipe;
 import pl.stylowamc.smfishingplanet.SMFishingPlanet;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.ChatColor;
+import pl.stylowamc.smfishingplanet.items.FishingRod;
+import java.util.List;
 
 public class FishingRodRecipe {
     private final SMFishingPlanet plugin;
@@ -42,11 +44,25 @@ public class FishingRodRecipe {
                 ItemMeta originalMeta = original.getItemMeta();
                 if (originalMeta == null || !originalMeta.hasDisplayName()) return false;
                 
+                // Sprawdź czy przedmiot jest żyłką (string)
+                if (item.getType() != Material.STRING) return false;
+                
+                // Sprawdź czy ma lore (wszystkie żyłki z pluginu mają lore)
+                if (!meta.hasLore()) return false;
+                
+                // Sprawdź czy w lore jest informacja o możliwości użycia w craftingu
+                List<String> lore = meta.getLore();
+                if (lore == null || lore.isEmpty()) return false;
+                boolean canBeUsedInCrafting = lore.stream()
+                    .anyMatch(line -> line.contains("Można używać w craftingu wędek"));
+                if (!canBeUsedInCrafting) return false;
+                
                 // Wyciągamy tylko nazwę i porównujemy ją, ignorując inne atrybuty
                 String itemName = ChatColor.stripColor(meta.getDisplayName());
                 String originalName = ChatColor.stripColor(originalMeta.getDisplayName());
                 
-                // Sprawdzamy czy żyłka ma odpowiednią wielkość (np. "Żyłka 4mm")
+                // Sprawdzamy czy żyłka ma odpowiednią wielkość
+                if (originalName.contains("2mm") && itemName.contains("2mm")) return true;
                 if (originalName.contains("4mm") && itemName.contains("4mm")) return true;
                 if (originalName.contains("5mm") && itemName.contains("5mm")) return true;
                 if (originalName.contains("6mm") && itemName.contains("6mm")) return true;
@@ -58,7 +74,7 @@ public class FishingRodRecipe {
     
     public ShapedRecipe createBasicRodRecipe() {
         // Stwórz podstawową wędkę
-        ItemStack basicRod = plugin.getFishingRod().createFishingRod("basic");
+        ItemStack basicRod = FishingRod.createFishingRod(plugin, "basic");
         if (basicRod == null) return null;
         
         // Stwórz klucz dla receptury
@@ -83,7 +99,7 @@ public class FishingRodRecipe {
     }
     
     public ShapedRecipe createAdvancedRodRecipe() {
-        ItemStack advancedRod = plugin.getFishingRod().createFishingRod("advanced");
+        ItemStack advancedRod = FishingRod.createFishingRod(plugin, "advanced");
         if (advancedRod == null) return null;
         
         NamespacedKey key = new NamespacedKey(plugin, "advanced_fishing_rod");
@@ -93,7 +109,7 @@ public class FishingRodRecipe {
         
         // Używamy żyłki z modelu zamiast z items
         pl.stylowamc.smfishingplanet.models.FishingLine fishingLineModel = 
-            pl.stylowamc.smfishingplanet.models.FishingLine.getLineForRodType("basic");
+            pl.stylowamc.smfishingplanet.models.FishingLine.getLineForRodType("advanced");
         ItemStack fishingLineItem = fishingLineModel.createItemStack();
         
         recipe.setIngredient('I', Material.IRON_INGOT);
@@ -113,7 +129,7 @@ public class FishingRodRecipe {
         
         // Używamy żyłki z modelu zamiast z items
         pl.stylowamc.smfishingplanet.models.FishingLine fishingLineModel = 
-            pl.stylowamc.smfishingplanet.models.FishingLine.getLineForRodType("advanced");
+            pl.stylowamc.smfishingplanet.models.FishingLine.getLineForRodType("professional");
         ItemStack fishingLineItem = fishingLineModel.createItemStack();
         
         recipe.setIngredient('I', Material.GOLD_INGOT);
@@ -133,7 +149,7 @@ public class FishingRodRecipe {
         
         // Używamy żyłki z modelu zamiast z items
         pl.stylowamc.smfishingplanet.models.FishingLine fishingLineModel = 
-            pl.stylowamc.smfishingplanet.models.FishingLine.getLineForRodType("professional");
+            pl.stylowamc.smfishingplanet.models.FishingLine.getLineForRodType("master");
         ItemStack fishingLineItem = fishingLineModel.createItemStack();
         
         recipe.setIngredient('I', Material.DIAMOND);

@@ -22,11 +22,11 @@ public class FishingLine {
     }
     
     public ItemStack createFishingLine4mm() {
-        return getFishingLineFromConfig("basic");
+        return getFishingLineFromConfig("advanced");
     }
     
     public ItemStack createFishingLine5mm() {
-        return getFishingLineFromConfig("advanced");
+        return getFishingLineFromConfig("professional");
     }
     
     public ItemStack createFishingLine6mm() {
@@ -78,6 +78,10 @@ public class FishingLine {
             }
         }
         
+        // Dodaj informację o możliwości użycia w craftingu
+        lore.add("");
+        lore.add(MessageUtils.colorize("&a✓ &7Można używać w craftingu wędek!"));
+        
         meta.setLore(lore);
         item.setItemMeta(meta);
         
@@ -99,20 +103,20 @@ public class FishingLine {
         
         switch (rodType) {
             case "basic":
+                size = "2mm";
+                rodName = "Podstawowej";
+                break;
+            case "advanced":
                 size = "4mm";
                 rodName = "Zaawansowanej";
                 break;
-            case "advanced":
+            case "professional":
                 size = "5mm";
                 rodName = "Profesjonalnej";
                 break;
-            case "professional":
-                size = "6mm";
-                rodName = "Mistrza";
-                break;
             default:
                 size = "2mm";
-                rodName = "Początkowej";
+                rodName = "Podstawowej";
                 break;
         }
         
@@ -121,8 +125,12 @@ public class FishingLine {
         List<String> lore = new ArrayList<>();
         lore.add(MessageUtils.colorize("&7Używana do craftowania"));
         lore.add(MessageUtils.colorize("&7Wędki " + rodName));
-        meta.setLore(lore);
         
+        // Dodaj informację o możliwości użycia w craftingu
+        lore.add("");
+        lore.add(MessageUtils.colorize("&a✓ &7Można używać w craftingu wędek!"));
+        
+        meta.setLore(lore);
         item.setItemMeta(meta);
         return item;
     }

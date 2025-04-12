@@ -203,8 +203,26 @@ public class ConfigManager {
             plugin.getLogger().info("Pobieranie wymaganego XP dla poziomu " + level + ": " + requiredXp);
             return requiredXp;
         } else {
-            // Wzór na wymagane XP gdy nie zdefiniowano konkretnej wartości
-            double requiredXp = 100 * Math.pow(1.5, level - 1);
+            // Pobierz wzór z konfiguracji
+            String formula = config.getString("levels.xp_formula", "15 + (level - 1) * 15 + Math.max(0, (level - 3) * 10) + Math.max(0, (level - 8) * 10) + Math.max(0, (level - 12) * 10)");
+            
+            // Zastąp zmienną level wartością
+            formula = formula.replace("level", String.valueOf(level));
+            
+            // Oblicz wartość
+            double requiredXp = 0;
+            try {
+                // Użyj JavaScript engine do obliczenia wyrażenia
+                javax.script.ScriptEngineManager mgr = new javax.script.ScriptEngineManager();
+                javax.script.ScriptEngine engine = mgr.getEngineByName("JavaScript");
+                requiredXp = Double.parseDouble(engine.eval(formula).toString());
+            } catch (Exception e) {
+                plugin.getLogger().warning("Błąd podczas obliczania XP z wzoru: " + formula);
+                plugin.getLogger().warning(e.getMessage());
+                // Użyj domyślnego wzoru w przypadku błędu
+                requiredXp = 15 + (level - 1) * 15 + Math.max(0, (level - 3) * 10) + Math.max(0, (level - 8) * 10) + Math.max(0, (level - 12) * 10);
+            }
+            
             plugin.getLogger().info("Obliczanie wymaganego XP dla poziomu " + level + ": " + requiredXp);
             return requiredXp;
         }

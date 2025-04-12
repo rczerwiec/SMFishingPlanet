@@ -39,7 +39,7 @@ public class PlayerDataManager {
         
         if (!playerFile.exists()) {
             // Stwórz nowe dane dla gracza
-            PlayerData data = new PlayerData();
+            PlayerData data = new PlayerData(uuid);
             data.setLevel(1);
             data.setXp(0.0);
             playerData.put(uuid, data);
@@ -54,7 +54,7 @@ public class PlayerDataManager {
         double xp = config.getDouble("xp", 0.0);
         double balance = config.getDouble("balance", plugin.getConfigManager().getConfig().getDouble("economy.starting_balance", 0.0));
 
-        PlayerData data = new PlayerData();
+        PlayerData data = new PlayerData(uuid);
         data.setLevel(level);
         data.setXp(xp);
         data.setBalance(balance);
@@ -251,7 +251,10 @@ public class PlayerDataManager {
     }
 
     public void addXp(Player player, double amount) {
-        PlayerData data = getPlayerData(player);
+        PlayerData data = playerData.getOrDefault(player.getUniqueId(), new PlayerData(player.getUniqueId()));
+        if (!playerData.containsKey(player.getUniqueId())) {
+            playerData.put(player.getUniqueId(), data);
+        }
         data.addXp(amount);
         
         // Sprawdz, czy gracz może awansować
@@ -275,20 +278,29 @@ public class PlayerDataManager {
     }
 
     public double getRequiredXp(int level) {
-        return 100 * Math.pow(1.5, level - 1);
+        return plugin.getConfigManager().getXpRequired(level);
     }
 
     public int getLevel(Player player) {
-        return playerData.getOrDefault(player.getUniqueId(), new PlayerData()).getLevel();
+        PlayerData data = playerData.get(player.getUniqueId());
+        if (data == null) {
+            data = new PlayerData(player.getUniqueId());
+            playerData.put(player.getUniqueId(), data);
+        }
+        return data.getLevel();
     }
 
     public double getXp(Player player) {
-        PlayerData data = getPlayerData(player);
-        return data != null ? data.getXp() : 0.0;
+        PlayerData data = playerData.get(player.getUniqueId());
+        if (data == null) {
+            data = new PlayerData(player.getUniqueId());
+            playerData.put(player.getUniqueId(), data);
+        }
+        return data.getXp();
     }
 
     public double getCurrentXp(Player player) {
-        return playerData.getOrDefault(player.getUniqueId(), new PlayerData()).getXp();
+        return playerData.getOrDefault(player.getUniqueId(), new PlayerData(player.getUniqueId())).getXp();
     }
 
     public void setLevel(Player player, int level) {
@@ -296,7 +308,7 @@ public class PlayerDataManager {
         PlayerData data = playerData.get(uuid);
         
         if (data == null) {
-            data = new PlayerData();
+            data = new PlayerData(uuid);
             data.setLevel(level);
             data.setXp(0);
             playerData.put(uuid, data);
@@ -325,196 +337,52 @@ public class PlayerDataManager {
     }
 
     public PlayerData getPlayerData(Player player) {
-        if (!playerData.containsKey(player.getUniqueId())) {
-            playerData.put(player.getUniqueId(), new PlayerData());
-        }
         return playerData.get(player.getUniqueId());
     }
 
     public PlayerData getOrCreatePlayerData(UUID uuid) {
-        if (!playerData.containsKey(uuid)) {
-            playerData.put(uuid, new PlayerData());
-        }
-        return playerData.get(uuid);
+        return playerData.computeIfAbsent(uuid, k -> new PlayerData(uuid));
     }
 
     public double giveXp(Player player, double xp) {
         PlayerData data = getPlayerData(player);
-        data.addXp(xp);
-        double requiredXp = plugin.getConfigManager().getXpRequired(data.getLevel());
-        
-        if (data.getXp() >= requiredXp) {
-            levelUp(player);
-            return data.getXp() - requiredXp;
+        if (data == null) {
+            data = new PlayerData(player.getUniqueId());
+            playerData.put(player.getUniqueId(), data);
         }
-        
-        savePlayer(player.getUniqueId());
-        return 0;
+        data.addXp(xp);
+        return data.getXp();
     }
 
     public void levelUp(Player player) {
         PlayerData data = getPlayerData(player);
-        double requiredXp = plugin.getConfigManager().getXpRequired(data.getLevel());
-        
-        if (data.getXp() >= requiredXp) {
-            double remainingXp = data.getXp() - requiredXp;
-            data.setLevel(data.getLevel() + 1);
-            data.setXp(remainingXp);
-            
-            // Komunikaty i nagrody za poziom
-            
-            savePlayer(player.getUniqueId());
+        if (data == null) {
+            data = new PlayerData(player.getUniqueId());
+            playerData.put(player.getUniqueId(), data);
         }
+        data.setLevel(data.getLevel() + 1);
+        data.setXp(0);
     }
 
     public void savePlayers() {
-        File dataFolder = new File(plugin.getDataFolder(), "playerdata");
-        if (!dataFolder.exists()) {
-            dataFolder.mkdirs();
-        }
-        
-        for (Map.Entry<UUID, PlayerData> entry : playerData.entrySet()) {
-            UUID uuid = entry.getKey();
-            PlayerData data = entry.getValue();
-            
-            File playerFile = new File(dataFolder, uuid.toString() + ".yml");
-            FileConfiguration config = new YamlConfiguration();
-            
-            // Podstawowe dane
-            config.set("balance", data.getBalance());
-            config.set("level", data.getLevel());
-            config.set("xp", data.getXp());
-            
-            // Statystyki łowienia
-            config.set("stats.total_catches", data.getTotalCatches());
-            config.set("stats.failed_catches", data.getFailedCatches());
-            
-            // Zapisz ilość złowionych ryb według nazwy
-            ConfigurationSection fishCaughtSection = config.createSection("stats.fish_caught");
-            for (Map.Entry<String, Integer> fishEntry : data.getFishCaught().entrySet()) {
-                fishCaughtSection.set(fishEntry.getKey(), fishEntry.getValue());
+        for (Player player : plugin.getServer().getOnlinePlayers()) {
+            PlayerData data = getPlayerData(player);
+            if (data == null) {
+                data = new PlayerData(player.getUniqueId());
+                playerData.put(player.getUniqueId(), data);
             }
-            
-            // Zapisz ilość złowionych ryb według rzadkości
-            ConfigurationSection rarityCaughtSection = config.createSection("stats.rarity_caught");
-            for (Map.Entry<String, Integer> rarityEntry : data.getRarityCaught().entrySet()) {
-                rarityCaughtSection.set(rarityEntry.getKey(), rarityEntry.getValue());
-            }
-            
-            // Statystyki wagi
-            config.set("stats.small_fish", data.getSmallFishCaught());
-            config.set("stats.medium_fish", data.getMediumFishCaught());
-            config.set("stats.large_fish", data.getLargeFishCaught());
-            config.set("stats.huge_fish", data.getHugeFishCaught());
-            
-            // Rekordy
-            config.set("stats.heaviest_fish", data.getHeaviestFish());
-            config.set("stats.heaviest_fish_name", data.getHeaviestFishName());
-            config.set("stats.heaviest_fish_date", data.getHeaviestFishDate());
-            
-            // Statystyki ekonomiczne
-            config.set("stats.total_earnings", data.getTotalEarnings());
-            
-            try {
-                config.save(playerFile);
-            } catch (IOException e) {
-                plugin.getLogger().log(Level.SEVERE, "Nie można zapisać danych gracza: " + uuid, e);
-            }
+            savePlayerData(player);
         }
     }
-    
+
     public void loadPlayers() {
-        File dataFolder = new File(plugin.getDataFolder(), "playerdata");
-        if (!dataFolder.exists()) {
-            dataFolder.mkdirs();
-            return;
-        }
-        
-        File[] playerFiles = dataFolder.listFiles((dir, name) -> name.endsWith(".yml"));
-        if (playerFiles == null) {
-            return;
-        }
-        
-        for (File file : playerFiles) {
-            String fileName = file.getName();
-            if (fileName.endsWith(".yml")) {
-                try {
-                    String uuidString = fileName.substring(0, fileName.length() - 4);
-                    UUID uuid = UUID.fromString(uuidString);
-                    
-                    YamlConfiguration config = YamlConfiguration.loadConfiguration(file);
-                    PlayerData data = new PlayerData();
-                    
-                    // Podstawowe dane
-                    data.setBalance(config.getDouble("balance", 0.0));
-                    data.setLevel(config.getInt("level", 1));
-                    data.setXp(config.getDouble("xp", 0.0));
-                    
-                    // Statystyki łowienia
-                    if (config.contains("stats")) {
-                        // Proste statystyki
-                        if (config.contains("stats.total_catches")) {
-                            int totalCatches = config.getInt("stats.total_catches", 0);
-                            for (int i = 0; i < totalCatches; i++) {
-                                data.incrementCatches();
-                            }
-                        }
-                        
-                        if (config.contains("stats.failed_catches")) {
-                            int failedCatches = config.getInt("stats.failed_catches", 0);
-                            for (int i = 0; i < failedCatches; i++) {
-                                data.incrementFailedCatches();
-                            }
-                        }
-                        
-                        // Złowione ryby według nazwy
-                        if (config.contains("stats.fish_caught")) {
-                            ConfigurationSection fishCaughtSection = config.getConfigurationSection("stats.fish_caught");
-                            if (fishCaughtSection != null) {
-                                for (String fishName : fishCaughtSection.getKeys(false)) {
-                                    int count = fishCaughtSection.getInt(fishName, 0);
-                                    for (int i = 0; i < count; i++) {
-                                        data.addFishCaught(fishName);
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // Złowione ryby według rzadkości
-                        if (config.contains("stats.rarity_caught")) {
-                            ConfigurationSection rarityCaughtSection = config.getConfigurationSection("stats.rarity_caught");
-                            if (rarityCaughtSection != null) {
-                                for (String rarity : rarityCaughtSection.getKeys(false)) {
-                                    int count = rarityCaughtSection.getInt(rarity, 0);
-                                    for (int i = 0; i < count; i++) {
-                                        data.addRarityCaught(rarity);
-                                    }
-                                }
-                            }
-                        }
-                        
-                        // Statystyki wagi
-                        data.addFishByWeight(config.getDouble("stats.small_fish", 0));
-                        data.addFishByWeight(config.getDouble("stats.medium_fish", 0));
-                        data.addFishByWeight(config.getDouble("stats.large_fish", 0));
-                        data.addFishByWeight(config.getDouble("stats.huge_fish", 0));
-                        
-                        // Rekordy
-                        double heaviestFish = config.getDouble("stats.heaviest_fish", 0);
-                        String heaviestFishName = config.getString("stats.heaviest_fish_name", "");
-                        String heaviestFishDate = config.getString("stats.heaviest_fish_date", "");
-                        data.setHeaviestFish(heaviestFish, heaviestFishName, heaviestFishDate);
-                        
-                        // Statystyki ekonomiczne
-                        data.addEarnings(config.getDouble("stats.total_earnings", 0));
-                    }
-                    
-                    playerData.put(uuid, data);
-                    plugin.getLogger().info("Wczytano dane gracza: " + uuid);
-                } catch (IllegalArgumentException e) {
-                    plugin.getLogger().log(Level.WARNING, "Nieprawidłowy format UUID w pliku: " + fileName, e);
-                }
+        for (Player player : plugin.getServer().getOnlinePlayers()) {
+            PlayerData data = getPlayerData(player);
+            if (data == null) {
+                data = new PlayerData(player.getUniqueId());
+                playerData.put(player.getUniqueId(), data);
             }
+            loadPlayerData(player);
         }
     }
     
@@ -727,8 +595,8 @@ public class PlayerDataManager {
         
         // Statystyki ekonomiczne
         private double totalEarnings;
-        
-        public PlayerData() {
+
+        public PlayerData(UUID uuid) {
             this.balance = 0;
             this.level = 1;
             this.xp = 0;
@@ -746,11 +614,11 @@ public class PlayerDataManager {
             this.heaviestFishDate = "";
             this.totalEarnings = 0;
         }
-        
+
         public double getBalance() {
             return balance;
         }
-        
+
         public void setBalance(double balance) {
             this.balance = balance;
         }
@@ -758,27 +626,27 @@ public class PlayerDataManager {
         public void addBalance(double amount) {
             this.balance += amount;
         }
-        
+
         public int getLevel() {
             return level;
         }
-        
+
         public void setLevel(int level) {
             this.level = level;
         }
-        
+
         public double getXp() {
             return xp;
         }
-        
+
         public void setXp(double xp) {
             this.xp = xp;
         }
-        
+
         public void addXp(double amount) {
             this.xp += amount;
         }
-        
+
         // Metody statystyk łowienia
         public int getTotalCatches() {
             return totalCatches;

@@ -26,10 +26,13 @@ import pl.stylowamc.smfishingplanet.managers.FishManager;
 import pl.stylowamc.smfishingplanet.managers.PlayerDataManager;
 import pl.stylowamc.smfishingplanet.menus.SellMenu;
 import pl.stylowamc.smfishingplanet.utils.MessageUtils;
+import pl.stylowamc.smfishingplanet.utils.FishingPlaceholders;
 import org.bukkit.inventory.ShapedRecipe;
 import org.bukkit.command.CommandExecutor;
 import java.util.Map;
 import java.util.UUID;
+import com.sk89q.worldguard.WorldGuard;
+import com.sk89q.worldguard.protection.regions.RegionContainer;
 
 public class SMFishingPlanet extends JavaPlugin {
     private static SMFishingPlanet instance;
@@ -39,6 +42,7 @@ public class SMFishingPlanet extends JavaPlugin {
     private PlayerDataManager playerDataManager;
     private FishingRod fishingRod;
     private SellMenu sellMenu;
+    private WorldGuard worldGuard;
 
     @Override
     public void onEnable() {
@@ -113,6 +117,22 @@ public class SMFishingPlanet extends JavaPlugin {
         // Inicjalizacja bStats
         int pluginId = 20947; // ID twojego pluginu na bStats
         new Metrics(this, pluginId);
+
+        // Inicjalizacja WorldGuard
+        if (getServer().getPluginManager().getPlugin("WorldGuard") != null) {
+            worldGuard = WorldGuard.getInstance();
+            getLogger().info("WorldGuard został pomyślnie zainicjalizowany!");
+        } else {
+            getLogger().warning("WorldGuard nie został znaleziony! Niektóre funkcje mogą nie działać.");
+        }
+
+        // Rejestracja placeholderów
+        if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            new FishingPlaceholders(this).register();
+            getLogger().info("PlaceholderAPI został pomyślnie zainicjalizowany!");
+        } else {
+            getLogger().warning("PlaceholderAPI nie został znaleziony! Placeholdery nie będą działać.");
+        }
 
         getLogger().info("Plugin został pomyślnie włączony!");
     }
@@ -229,5 +249,9 @@ public class SMFishingPlanet extends JavaPlugin {
         } else {
             getLogger().warning("Nie można zarejestrować komendy: " + name + " - brak definicji w plugin.yml");
         }
+    }
+
+    public WorldGuard getWorldGuard() {
+        return worldGuard;
     }
 }

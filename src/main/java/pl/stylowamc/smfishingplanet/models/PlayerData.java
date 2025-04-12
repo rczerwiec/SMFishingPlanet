@@ -8,6 +8,7 @@ public class PlayerData {
     private double balance;
     private int level;
     private double xp;
+    private UUID playerUUID;
     
     // Statystyki łowienia
     private int totalCatches;       // Łącznie złowionych ryb
@@ -30,7 +31,8 @@ public class PlayerData {
     // Statystyki ekonomiczne
     private double totalEarnings;    // Łączny zarobek ze sprzedaży ryb
     
-    public PlayerData() {
+    public PlayerData(UUID playerUUID) {
+        this.playerUUID = playerUUID;
         this.balance = 0;
         this.level = 1;
         this.xp = 0;
@@ -211,5 +213,14 @@ public class PlayerData {
     public double getSuccessRate() {
         if (totalCatches + failedCatches == 0) return 0;
         return (double) totalCatches / (totalCatches + failedCatches) * 100;
+    }
+
+    public double getRequiredXp() {
+        // Wzór na wymagane XP do następnego poziomu
+        return 15 + (level - 1) * 15 + Math.max(0, (level - 3) * 10) + Math.max(0, (level - 8) * 10) + Math.max(0, (level - 12) * 10);
+    }
+
+    public UUID getPlayerUUID() {
+        return playerUUID;
     }
 } 
